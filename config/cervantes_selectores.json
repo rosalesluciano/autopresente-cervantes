@@ -1,0 +1,29 @@
+{
+  "_nota": "Selectores del portal Autogestión Cervantes. Los valores por defecto apuntan al portal simulado (/cervantes). Para el portal real, inspeccionar el DOM (F12) y ajustar sólo este archivo: el robot no cambia.",
+  "login": {
+    "usuario": "input[name='usuario']",
+    "clave": "input[name='clave']",
+    "boton": "button[type='submit']",
+    "exito": "text=Cátedra"
+  },
+  "navegacion": [
+    "text=Cátedra",
+    "text=Asistencia de alumnos"
+  ],
+  "filtros": {
+    "materia": "select[name='materia']",
+    "division": "select[name='division']",
+    "mes": "select[name='mes']",
+    "fecha": "select[name='fecha']",
+    "buscar": "button#buscar"
+  },
+  "tabla": {
+    "filas": "table#tabla-asistencia tbody tr",
+    "columna_matricula": 0,
+    "columna_nombre": 1,
+    "radio_presente": "input[type='radio'][value='P']",
+    "radio_ausente": "input[type='radio'][value='A']"
+  },
+  "guardar": "button#guardar",
+  "confirmacion": "text=Asistencia guardada"
+}

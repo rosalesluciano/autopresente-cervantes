@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Autogestión Cervantes (simulación)</title>
+<link rel="icon" href="img/icono-cervantes.png">
+<style>
+body{font-family:Tahoma,Verdana,sans-serif;font-size:12px;background:#d4d0c8;margin:0;color:#000}
+.aviso{background:#2A3355;color:#fff;font-family:Segoe UI,Arial,sans-serif;font-size:12px;padding:6px 12px;text-align:center}
+.top{background:linear-gradient(#6a7fa8,#3b5080);color:#fff;padding:8px 12px;font-weight:bold;font-size:14px}
+.top small{font-weight:normal;font-size:11px;opacity:.85}
+.menu{background:#ece9d8;border-bottom:1px solid #999;padding:4px 8px}
+.menu a{color:#003399;margin-right:14px;text-decoration:underline;cursor:pointer}
+.caja{background:#fff;border:1px solid #808080;margin:14px;padding:12px;max-width:820px}
+h2{font-size:13px;background:#ece9d8;margin:-12px -12px 10px;padding:6px 12px;border-bottom:1px solid #808080}
+table{border-collapse:collapse;width:100%}td,th{border:1px solid #a0a0a0;padding:3px 6px}
+th{background:#ece9d8;text-align:left}tr:nth-child(even) td{background:#f4f4f4}
+button{font-family:inherit;font-size:12px;padding:2px 12px}
+.ok{background:#e8ffe8;border:1px solid #2e8b2e;padding:6px;margin-bottom:8px;color:#185c18;font-weight:bold}
+label{display:inline-block;width:70px}select,input{font-family:inherit;font-size:12px;margin:2px 0}
+ul a{color:#003399;text-decoration:underline;cursor:pointer}
+#cursor{position:fixed;left:0;top:0;width:22px;height:22px;z-index:99;pointer-events:none;display:none;
+  transition:transform .55s cubic-bezier(.3,.7,.3,1);filter:drop-shadow(0 2px 2px rgba(0,0,0,.35))}
+.clic{position:fixed;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;border:2px solid #e5484d;z-index:98;pointer-events:none;animation:clic .45s ease-out forwards}
+@keyframes clic{from{transform:scale(.3);opacity:1}to{transform:scale(1.6);opacity:0}}
+.resalta{outline:2px solid #e5484d;outline-offset:1px}
+</style>
+</head>
+<body>
+<div class="aviso">Simulación del portal para la demo de AutoPresente · no ingresa a ningún sistema real</div>
+<div class="top">Autogestión Cervantes <small>v2.3.1 — Módulo Docente</small></div>
+<div id="vista"></div>
+<svg id="cursor" viewBox="0 0 24 24"><path d="M3 2l7 19 2.6-7.4L20 11z" fill="#fff" stroke="#000" stroke-width="1.6" stroke-linejoin="round"/></svg>
+<script src="js/comun.js"></script>
+<script>
+const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+const vista = document.getElementById("vista");
+const menu = `<div class="menu"><a data-ir="inicio">Inicio</a><a data-ir="catedra">Cátedra</a><a>Mensajes</a><a data-ir="login">Salir</a></div>`;
+let filtros = {materia: "", division: "", mes: "", fecha: ""}, guardado = false;
+
+function opciones(vals, sel){ return "<option value=''>-- Seleccione --</option>" + vals.map(v => `<option${v === sel ? " selected" : ""}>${esc(v)}</option>`).join(""); }
+function dias(mesIdx){ if (mesIdx < 0) return []; const y = new Date().getFullYear(), n = new Date(y, mesIdx + 1, 0).getDate();
+  return Array.from({length: n}, (_, i) => `${dos(i + 1)}/${dos(mesIdx + 1)}/${y}`); }
+
+function ir(pantalla){
+  if (pantalla === "login") vista.innerHTML = `<div class="caja" style="max-width:320px"><h2>Ingreso al sistema</h2>
+    <label>Usuario</label><input id="usuario" readonly><br><label>Clave</label><input id="clave" type="password" readonly><br><br>
+    <button id="ingresar">Ingresar</button><p style="color:#666">En la simulación el robot completa estos datos solo.</p></div>`;
+  if (pantalla === "inicio") vista.innerHTML = menu + `<div class="caja"><h2>Bienvenido/a</h2>Use el menú superior para gestionar sus materias.</div>`;
+  if (pantalla === "catedra") vista.innerHTML = menu + `<div class="caja"><h2>Cátedra</h2><ul>
+    <li><a data-ir="asistencia" id="link-asistencia">Asistencia de alumnos</a></li><li><a>Carga de notas</a></li><li><a>Programa de la materia</a></li></ul></div>`;
+  if (pantalla === "asistencia") pintarAsistencia();
+  const b = document.getElementById("ingresar"); if (b) b.onclick = () => ir("inicio");
+  vista.querySelectorAll("[data-ir]").forEach(a => a.onclick = () => ir(a.dataset.ir));
+}
+
+function pintarAsistencia(){
+  const materias = [...new Set(Object.values(CONFIG.cursos).map(c => c.materia))].sort();
+  const divs = [...new Set(Object.values(CONFIG.cursos).map(c => c.division))].sort();
+  let html = menu + `<div class="caja"><h2>Asistencia de alumnos</h2>
+    <label>Materia</label><select id="f-materia">${opciones(materias, filtros.materia)}</select><br>
+    <label>División</label><select id="f-division">${opciones(divs, filtros.division)}</select><br>
+    <label>Mes</label><select id="f-mes">${opciones(MESES, filtros.mes)}</select><br>
+    <label>Fecha</label><select id="f-fecha">${opciones(dias(MESES.indexOf(filtros.mes)), filtros.fecha)}</select><br><br>
+    <button id="buscar">Buscar</button></div>`;
+  const curso = Object.values(CONFIG.cursos).find(c => c.materia === filtros.materia && c.division === filtros.division);
+  if (curso && filtros.fecha && filtros.buscado) {
+    const prev = leer().portal[`${curso.id}|${filtros.fecha}`] || {};
+    html += `<div class="caja"><h2>${esc(curso.materia)} — División ${curso.division} — ${filtros.fecha}</h2>
+      ${guardado ? '<div class="ok" id="ok">Asistencia guardada correctamente.</div>' : ""}
+      <table id="tabla"><thead><tr><th>Matrícula</th><th>Apellido y nombre</th><th></th><th></th></tr></thead><tbody>
+      ${padron(curso.id).map(a => `<tr data-m="${a.matricula}"><td>${a.matricula}</td><td>${esc(a.nombre)}</td>
+        <td><label style="width:auto"><input type="radio" name="a_${a.matricula}" value="P"${prev[a.matricula] === "P" ? " checked" : ""}> Presente</label></td>
+        <td><label style="width:auto"><input type="radio" name="a_${a.matricula}" value="A"${prev[a.matricula] === "A" ? " checked" : ""}> Ausente</label></td></tr>`).join("")}
+      </tbody></table><br><button id="guardar">Guardar</button></div>`;
+  }
+  vista.innerHTML = html;
+  vista.querySelectorAll("[data-ir]").forEach(a => a.onclick = () => ir(a.dataset.ir));
+  for (const k of ["materia", "division", "fecha"]) document.getElementById("f-" + k).onchange = ev => { filtros[k] = ev.target.value; };
+  document.getElementById("f-mes").onchange = ev => { filtros.mes = ev.target.value; filtros.fecha = ""; guardado = false;
+    document.getElementById("f-fecha").innerHTML = opciones(dias(MESES.indexOf(filtros.mes)), ""); };
+  document.getElementById("buscar").onclick = () => { filtros.buscado = true; guardado = false; pintarAsistencia(); };
+  const g = document.getElementById("guardar");
+  if (g) g.onclick = () => {
+    mutar(e => { const reg = {}; document.querySelectorAll("#tabla tr[data-m]").forEach(tr => {
+      const r = tr.querySelector("input:checked"); if (r) reg[tr.dataset.m] = r.value; });
+      e.portal[`${curso.id}|${filtros.fecha}`] = reg; });
+    guardado = true; pintarAsistencia();
+  };
+}
+
+/* ── Robot: mueve un cursor "fantasma" y hace los mismos pasos que Playwright en producción ── */
+const cursor = document.getElementById("cursor");
+const pausa = ms => new Promise(r => setTimeout(r, ms));
+let cx = 40, cy = 40;
+async function mover(el){
+  el.scrollIntoView({block: "center", behavior: "smooth"}); await pausa(250);
+  const r = el.getBoundingClientRect(); cx = r.left + Math.min(r.width / 2, 40); cy = r.top + r.height / 2;
+  cursor.style.transform = `translate(${cx - 4}px,${cy - 3}px)`; await pausa(560);
+}
+async function clic(sel){
+  const el = typeof sel === "string" ? await esperar(sel) : sel; await mover(el);
+  const o = document.createElement("div"); o.className = "clic"; o.style.left = cx + "px"; o.style.top = cy + "px";
+  document.body.appendChild(o); setTimeout(() => o.remove(), 500);
+  el.click(); await pausa(200);
+}
+async function escribir(sel, txt){
+  const el = await esperar(sel); await clic(el);
+  for (const ch of txt) { el.value += ch; await pausa(70); }
+}
+async function elegirOpcion(sel, etiqueta){
+  const el = await esperar(sel); await mover(el); el.classList.add("resalta"); await pausa(300);
+  el.value = [...el.options].find(o => o.text === etiqueta)?.value ?? "";
+  el.dispatchEvent(new Event("change")); await pausa(250); el.classList.remove("resalta");
+}
+async function esperar(sel){
+  for (let i = 0; i < 100; i++) { const el = document.querySelector(sel); if (el) return el; await pausa(100); }
+  throw new Error("No se encontró " + sel);
+}
+
+async function robot(claseId){
+  const job = JSON.parse(localStorage.getItem("autopresente_robot") || "null");
+  if (!job || job.claseId !== claseId) return;
+  cursor.style.display = "block";
+  try {
+    ir("login");
+    await escribir("#usuario", "profesor");
+    await escribir("#clave", "••••••");
+    await clic("#ingresar");
+    await clic(".menu [data-ir=catedra]");
+    await clic("#link-asistencia");
+    await elegirOpcion("#f-materia", job.materia);
+    await elegirOpcion("#f-division", job.division);
+    await elegirOpcion("#f-mes", MESES[job.mes]);
+    await elegirOpcion("#f-fecha", job.fecha);
+    await clic("#buscar");
+    let p = 0;
+    for (const f of job.filas) {
+      const tr = await esperar(`#tabla tr[data-m="${f.matricula}"]`);
+      const radio = tr.querySelector(`input[value="${f.presente ? "P" : "A"}"]`);
+      tr.scrollIntoView({block: "center"});
+      const r = radio.getBoundingClientRect(); cx = r.left + 6; cy = r.top + 6;
+      cursor.style.transition = "transform .12s linear"; cursor.style.transform = `translate(${cx - 4}px,${cy - 3}px)`;
+      await pausa(130); radio.checked = true; p += f.presente;
+    }
+    cursor.style.transition = "";
+    await clic("#guardar");
+    await esperar("#ok");
+    await pausa(600);
+    parent.postMessage({tipo: "robot_fin", claseId, ok: true,
+      detalle: `Cervantes actualizado: ${p} presentes, ${job.filas.length - p} ausentes`}, location.origin);
+  } catch (err) {
+    parent.postMessage({tipo: "robot_fin", claseId, ok: false, detalle: String(err.message || err)}, location.origin);
+  }
+}
+
+const robotId = +new URLSearchParams(location.search).get("robot");
+ir("login");
+if (robotId) robot(robotId);
+else { const u = document.getElementById("usuario"); u.value = "profesor"; document.getElementById("clave").value = "demo"; }
+</script>
+</body>
+</html>

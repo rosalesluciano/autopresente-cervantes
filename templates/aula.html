@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block titulo %}{{ aula_id }} · AutoPresente{% endblock %}
+{% block cabeza %}
+<style>
+  body{background:var(--azul);color:#fff;min-height:100vh}
+  .kiosco{min-height:100vh;display:grid;grid-template-columns:minmax(320px,46vh) 1fr;gap:6vw;align-items:center;padding:6vh 7vw}
+  .qr{background:#fff;border-radius:24px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+  .qr svg{width:100%;height:auto;display:block}
+  .qr svg path{fill:var(--azul)}
+  .rot{height:5px;background:var(--azul-suave);border-radius:4px;margin-top:16px;overflow:hidden}
+  .rot i{display:block;height:100%;background:var(--azul);transition:width 1s linear}
+  .rot-txt{color:var(--texto-3);font-size:13px;text-align:center;margin-top:8px}
+  .eyebrow{text-transform:uppercase;letter-spacing:.14em;font-size:13px;opacity:.65;font-weight:600}
+  .mat{font-size:clamp(32px,4.6vw,64px);font-weight:800;letter-spacing:-.03em;line-height:1.05;margin:10px 0 6px}
+  .hor{font-size:clamp(16px,1.6vw,22px);opacity:.8}
+  .instr{margin:4vh 0;font-size:clamp(16px,1.5vw,21px);opacity:.92;max-width:34em}
+  .instr b{color:#fff}
+  .contador{display:flex;align-items:baseline;gap:12px}
+  .contador .n{font-size:clamp(48px,6vw,88px);font-weight:800;letter-spacing:-.04em;line-height:1}
+  .contador .de{opacity:.6;font-size:20px}
+  .ultimos{margin-top:18px;display:flex;flex-wrap:wrap;gap:8px}
+  .ultimos span{background:rgba(255,255,255,.12);border-radius:999px;padding:6px 14px;font-size:15px;animation:entra .5s ease}
+  @keyframes entra{from{opacity:0;transform:translateY(6px)}}
+  .espera{min-height:100vh;display:grid;place-items:center;text-align:center;padding:20px}
+  .espera .h{font-size:clamp(60px,10vw,140px);font-weight:800;letter-spacing:-.04em}
+  .pie{position:fixed;bottom:16px;left:0;right:0;text-align:center;font-size:12px;opacity:.45}
+  @media (max-width:760px){.kiosco{grid-template-columns:1fr;padding:24px 16px}}
+</style>
+{% endblock %}
+{% block barra %}{% endblock %}
+{% block cuerpo %}
+<div id="raiz"></div>
+<img src="/static/icono-cervantes.png" alt="Cervantes" style="position:fixed;top:24px;right:28px;width:52px;height:52px;border-radius:50%;background:#fff;padding:3px">
+<div class="pie">Cervantes · AutoPresente · {{ aula.nombre }} · registro automático de asistencia</div>
+<script>
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let ultimoSvg = "";
+async function ciclo(){
+  try{
+    const d = await (await fetch("/api/aula/{{ aula_id }}")).json();
+    const raiz = document.getElementById("raiz");
+    if(!d.activa){
+      ultimoSvg = "";
+      raiz.innerHTML = `<div class="espera"><div><div class="eyebrow">{{ aula.nombre }}</div>
+        <div class="h">${d.hora}</div><div style="opacity:.7">No hay clase en curso. El código aparece solo cuando empieza la próxima.</div></div></div>`;
+      return;
+    }
+    if(!document.getElementById("qr")){
+      raiz.innerHTML = `<div class="kiosco">
+        <div><div class="qr"><div id="qr"></div><div class="rot"><i id="rot"></i></div>
+          <div class="rot-txt">El código cambia cada ${d.rotacion} s</div></div></div>
+        <div><div class="eyebrow">Registro de asistencia · {{ aula_id }}</div>
+          <div class="mat" id="mat"></div><div class="hor" id="hor"></div>
+          <p class="instr">Escaneá el código con tu celular e ingresá con tu <b>cuenta institucional</b>. Listo: quedás presente.</p>
+          <div class="contador"><span class="n" id="n">0</span><span class="de" id="de"></span></div>
+          <div class="ultimos" id="ult"></div></div></div>`;
+    }
+    if(d.svg !== ultimoSvg){ document.getElementById("qr").innerHTML = d.svg; ultimoSvg = d.svg; }
+    document.getElementById("mat").textContent = `${d.materia} · ${d.division}`;
+    document.getElementById("hor").textContent = d.horario + " hs";
+    document.getElementById("n").textContent = d.presentes;
+    document.getElementById("de").textContent = `de ${d.total} presentes en el aula`;
+    document.getElementById("rot").style.width = (100 * d.restante / d.rotacion) + "%";
+    document.getElementById("ult").innerHTML = d.ultimos.map(n => `<span>✓ ${esc(n)}</span>`).join("");
+  }catch(e){}
+}
+ciclo(); setInterval(ciclo, 1000);
+</script>
+{% endblock %}

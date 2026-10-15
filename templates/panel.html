@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block titulo %}Panel · AutoPresente{% endblock %}
+{% block cuerpo %}
+<main>
+  <h1>Asistencia sin intervención</h1>
+  <p class="sub">El sistema sigue el horario de {{ PROFESOR.nombre }}: activa el QR del aula, toma la asistencia de Teams,
+    carga Autogestión Cervantes y envía el reporte. Este panel es sólo para mirar. <span id="reloj" class="etq azul"></span></p>
+
+  <div class="grid kpis">
+    <div class="tarjeta kpi"><div class="n" id="k-p">0</div><div class="l">Presenciales hoy</div></div>
+    <div class="tarjeta kpi"><div class="n" id="k-v">0</div><div class="l">Virtuales hoy</div></div>
+    <div class="tarjeta kpi"><div class="n" id="k-a">0</div><div class="l">Ausentes hoy</div></div>
+    <div class="tarjeta kpi"><div class="n" id="k-c">0</div><div class="l">Clases cargadas</div></div>
+  </div>
+
+  <div class="grid dos">
+    <section class="tarjeta">
+      <h2>Clases</h2>
+      <div id="clases"><div class="vacio">Sin clases todavía.</div></div>
+    </section>
+    <div class="grid">
+      {% if DEMO %}
+      <section class="tarjeta demo">
+        <h2>Simular una clase (demo)</h2>
+        <p class="detalle" style="margin-top:-6px">En producción esto lo dispara el horario. Acá lo adelantamos para mostrarlo.</p>
+        <label for="d-curso">Curso</label>
+        <select id="d-curso">{% for c in cursos.values() %}<option value="{{ c.id }}">{{ c.materia }} · {{ c.division }} ({{ c.aula }})</option>{% endfor %}</select>
+        <div class="grid" style="grid-template-columns:1fr 1fr;gap:10px">
+          <div><label for="d-min">Duración (min)</label><input id="d-min" type="number" value="3" min="1"></div>
+          <div><label for="d-esc">Escaneos simulados</label><input id="d-esc" type="number" value="12" min="0"></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+          <button class="btn" onclick="simular()">Iniciar clase</button>
+          <a class="btn sec" id="d-aula" href="/aula/A-201" target="_blank">Abrir pantalla del aula</a>
+        </div>
+      </section>
+      {% endif %}
+      <section class="tarjeta">
+        <h2>Actividad del robot</h2>
+        <div class="log" id="log"></div>
+      </section>
+    </div>
+  </div>
+</main>
+<script>
+const DEMO = {{ 'true' if DEMO else 'false' }};
+const PASOS = ["QR en aula","Teams","Cervantes","Correo","Listo"];
+const ETQ = {programada:["azul","Programada"],en_curso:["ok","En curso"],esperando_teams:["azul","Leyendo Teams"],
+  cargando_cervantes:["azul","Cargando Cervantes"],enviando_reporte:["azul","Enviando correo"],completada:["ok","Completada"],error:["err","Error"]};
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function tarjetaClase(c){
+  const [cls, txt] = ETQ[c.estado] || ["azul", c.estado];
+  const pasos = PASOS.map((p,i)=>{
+    let k = c.paso > i || c.estado==="completada" ? "hecho" : (c.paso===i ? "activo" : "");
+    return `<div class="paso ${k}"><div class="b"></div><span>${p}</span></div>`}).join("");
+  const r = c.resumen;
+  const res = r ? `<span class="etq ok">${r.presenciales} presenciales</span> <span class="etq azul">${r.virtuales} virtuales</span> <span class="etq err">${r.ausentes} ausentes</span>`
+                : `<span class="etq azul">${c.checkins} escaneos QR</span>`;
+  const fin = DEMO && c.estado==="en_curso" ? ` <button class="btn chico sec" onclick="finalizar(${c.id})">Terminar ya</button>` : "";
+  return `<div class="clase"><div class="cab"><div><div class="titulo">${esc(c.materia)} · ${esc(c.division)}</div>
+    <div class="meta">${c.fecha.split("-").reverse().join("/")} · ${c.inicio.slice(11,16)}–${c.fin.slice(11,16)} · Aula ${esc(c.aula)}</div></div>
+    <span class="etq ${cls}">${txt}</span></div>
+    <div class="pasos">${pasos}</div>
+    <div class="cab"><div class="detalle">${esc(c.detalle||"")}</div>
+    <div>${res} ${c.resumen ? `<a class="btn chico sec" href="/clase/${c.id}">Ver detalle</a>`:""}${fin}</div></div></div>`;
+}
+
+async function refrescar(){
+  try{
+    const d = await (await fetch("/api/estado")).json();
+    document.getElementById("reloj").textContent = d.ahora;
+    document.getElementById("k-p").textContent = d.hoy.presenciales;
+    document.getElementById("k-v").textContent = d.hoy.virtuales;
+    document.getElementById("k-a").textContent = d.hoy.ausentes;
+    document.getElementById("k-c").textContent = d.hoy.completadas;
+    document.getElementById("clases").innerHTML = d.clases.length ? d.clases.map(tarjetaClase).join("") : '<div class="vacio">Sin clases todavía.</div>';
+    document.getElementById("log").innerHTML = d.eventos.map(e =>
+      `<div class="${e.nivel}"><span class="t">${e.ts.slice(11,19)}</span>${e.clase_id?`<b>#${e.clase_id}</b> `:""}${esc(e.mensaje)}</div>`).join("");
+  }catch(e){}
+}
+async function simular(){
+  const body = {curso_id: document.getElementById("d-curso").value,
+    minutos: +document.getElementById("d-min").value, escaneos: +document.getElementById("d-esc").value};
+  const r = await (await fetch("/api/demo/simular",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})).json();
+  document.getElementById("d-aula").href = "/aula/" + r.aula;
+  refrescar();
+}
+async function finalizar(id){ await fetch(`/api/demo/finalizar/${id}`,{method:"POST"}); refrescar(); }
+const sel = document.getElementById("d-curso");
+if (sel) sel.addEventListener("change", () => {
+  const aula = sel.options[sel.selectedIndex].text.match(/\(([^)]+)\)/)[1];
+  document.getElementById("d-aula").href = "/aula/" + aula;
+});
+refrescar(); setInterval(refrescar, 2000);
+</script>
+{% endblock %}

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block titulo %}{{ curso.materia }} · AutoPresente{% endblock %}
+{% block cuerpo %}
+<main>
+  <p style="margin:0 0 8px"><a href="/">← Panel</a></p>
+  <h1>{{ curso.materia }} · División {{ curso.division }}</h1>
+  <p class="sub">{{ clase.fecha[8:10] }}/{{ clase.fecha[5:7] }}/{{ clase.fecha[:4] }} · {{ clase.inicio[11:16] }}–{{ clase.fin[11:16] }} · Aula {{ curso.aula }}
+    · <span class="etq {{ 'ok' if clase.estado == 'completada' else ('err' if clase.estado == 'error' else 'azul') }}">{{ clase.estado.replace('_', ' ') }}</span></p>
+
+  {% if resumen %}
+  <div class="grid kpis">
+    <div class="tarjeta kpi"><div class="n">{{ resumen.presenciales }}</div><div class="l">Presenciales</div></div>
+    <div class="tarjeta kpi"><div class="n">{{ resumen.virtuales }}</div><div class="l">Virtuales</div></div>
+    <div class="tarjeta kpi"><div class="n">{{ resumen.ausentes }}</div><div class="l">Ausentes</div></div>
+    <div class="tarjeta kpi"><div class="n">{{ resumen.total }}</div><div class="l">En padrón</div></div>
+  </div>
+  {% endif %}
+
+  <div class="grid dos">
+    <section class="tarjeta" style="overflow-x:auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+        <h2 style="margin:0">Alumnos</h2>
+        <div style="display:flex;gap:8px">
+          <a class="btn chico sec" href="/export/{{ clase.id }}">Descargar CSV</a>
+          {% if tiene_mail %}<a class="btn chico" href="/correo/{{ clase.id }}" target="_blank">Ver correo enviado</a>{% endif %}
+        </div>
+      </div>
+      <table class="t">
+        <thead><tr><th>Matrícula</th><th>Alumno</th><th>Estado</th><th>Modalidad</th><th>Tiempo</th><th>Cámara</th></tr></thead>
+        <tbody>
+        {% for r in registros %}
+          <tr>
+            <td>{{ r.matricula }}</td>
+            <td>{{ r.nombre }}</td>
+            <td><span class="etq {{ 'ok' if r.estado == 'Presente' else 'err' }}">{{ r.estado }}</span></td>
+            <td>{{ r.modalidad }}</td>
+            <td>{% if r.pct_tiempo is not none %}{{ r.minutos|round|int }} min ({{ r.pct_tiempo|round|int }}%){% else %}—{% endif %}</td>
+            <td style="white-space:nowrap">{% if r.pct_camara is not none %}
+              <span class="barra-cam {{ 'baja' if r.pct_camara < alerta }}"><i style="width:{{ r.pct_camara }}%"></i></span>{{ r.pct_camara|round|int }}%
+              {% else %}—{% endif %}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="6" class="vacio">Todavía no se consolidó la asistencia.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </section>
+    <section class="tarjeta">
+      <h2>Bitácora</h2>
+      <div class="log">{% for e in eventos %}<div class="{{ e.nivel }}"><span class="t">{{ e.ts[11:19] }}</span>{{ e.mensaje }}</div>{% endfor %}</div>
+    </section>
+  </div>
+</main>
+{% endblock %}

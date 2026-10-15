@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+jinja2
+python-multipart
+itsdangerous
+qrcode[pil]
+msal
+httpx
+apscheduler
+playwright
+python-dotenv

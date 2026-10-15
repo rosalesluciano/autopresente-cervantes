@@ -1,0 +1,31 @@
+{% extends "movil.html" %}
+{% block titulo %}Presente · AutoPresente{% endblock %}
+{% block cuerpo %}
+<div class="m-tarj centro" id="caja">
+  <div class="spinner"></div>
+  <h1 style="margin-top:18px">Verificando que estés en el aula…</h1>
+  <p class="sub">{{ curso.materia }} · División {{ curso.division }}<br>{{ alumno.email }}</p>
+</div>
+<script>
+const caja = document.getElementById("caja");
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+async function enviar(pos){
+  const body = pos ? {lat: pos.coords.latitude, lon: pos.coords.longitude, precision: pos.coords.accuracy} : {};
+  const r = await fetch("/api/checkin", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body)});
+  const d = await r.json();
+  if(d.ok){
+    caja.innerHTML = `<div class="icono ok">✓</div><h1>¡Presente, ${esc(d.nombre)}!</h1>
+      <p class="sub">${d.repetido ? "Ya estabas registrado/a en esta clase." : "Tu asistencia quedó registrada a las " + d.hora + "."}<br>
+      {{ curso.materia }} · División {{ curso.division }}</p>
+      <p class="detalle">Verificado por ${d.metodo === "gps" ? "ubicación" : "Wi-Fi de la facultad"}. Ya podés cerrar esta pestaña.</p>`;
+  } else {
+    caja.innerHTML = `<div class="icono err">!</div><h1>No pudimos registrarte</h1><p class="sub">${esc(d.mensaje)}</p>
+      <button class="btn ancho" onclick="location.reload()">Reintentar</button>`;
+  }
+}
+// La geolocalización del navegador sólo funciona con HTTPS; si no está, se valida por la red Wi-Fi.
+if (navigator.geolocation && window.isSecureContext) {
+  navigator.geolocation.getCurrentPosition(enviar, () => enviar(null), {enableHighAccuracy: true, timeout: 8000});
+} else { enviar(null); }
+</script>
+{% endblock %}

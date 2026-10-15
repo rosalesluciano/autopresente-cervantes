@@ -1,0 +1,9 @@
+{% extends "movil.html" %}
+{% block titulo %}{{ titulo }} · AutoPresente{% endblock %}
+{% block cuerpo %}
+<div class="m-tarj centro">
+  <div class="icono {{ 'ok' if ok else 'err' }}">{{ '✓' if ok else '!' }}</div>
+  <h1>{{ titulo }}</h1>
+  <p class="sub">{{ mensaje }}</p>
+</div>
+{% endblock %}

@@ -1,0 +1,21 @@
+{% extends "movil.html" %}
+{% block titulo %}Ingresar · AutoPresente{% endblock %}
+{% block cuerpo %}
+<div class="m-tarj">
+  <div class="icono azul">@</div>
+  <h1 class="centro">Ingresá con tu cuenta institucional</h1>
+  <p class="sub centro" style="margin-bottom:8px">En producción acá se abre el inicio de sesión de Microsoft 365.
+    En la demo elegí un alumno del padrón.</p>
+  {% if alumnos %}
+  <form method="post" action="/login/demo">
+    <label for="email">Cuenta</label>
+    <select id="email" name="email">
+      {% for a in alumnos %}<option value="{{ a.email }}">{{ a.nombre }} — {{ a.email }}</option>{% endfor %}
+    </select>
+    <button class="btn ancho" type="submit">Continuar</button>
+  </form>
+  {% else %}
+  <p class="centro">Volvé a escanear el código del aula.</p>
+  {% endif %}
+</div>
+{% endblock %}

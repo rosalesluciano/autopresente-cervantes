@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{% block titulo %}AutoPresente{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/estilo.css">
+<link rel="icon" href="/static/icono-cervantes.png">
+{% block cabeza %}{% endblock %}
+</head>
+<body>
+{% block barra %}
+<header class="barra"><div class="in">
+  <a class="marca" href="/"><img class="logo" src="/static/icono-cervantes.png" alt="">Cervantes<span class="producto">AutoPresente</span></a>
+  <span class="esp"></span>
+  <nav><a href="/">Panel</a>{% for id in ['A-201','LAB-3'] %}<a href="/aula/{{ id }}" target="_blank">Pantalla {{ id }}</a>{% endfor %}<a href="/cervantes" target="_blank">Portal Cervantes</a></nav>
+</div></header>
+{% endblock %}
+{% block cuerpo %}{% endblock %}
+</body>
+</html>

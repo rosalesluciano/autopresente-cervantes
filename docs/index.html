@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Panel · AutoPresente</title>
+<meta name="description" content="Asistencia automática para Cervantes: QR en el aula, Teams y carga robotizada en Autogestión.">
+<link rel="icon" href="img/icono-cervantes.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="estilo.css">
+<style>
+  .robot{display:none;margin-bottom:22px}
+  .robot.visible{display:block}
+  .robot iframe{width:100%;height:560px;border:1px solid var(--azul-borde);border-radius:10px;background:#d4d0c8;display:block}
+  .robot .cab{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px;flex-wrap:wrap}
+  .pulso{display:inline-block;width:9px;height:9px;border-radius:50%;background:#e5484d;margin-right:8px;animation:p 1s infinite}
+  @keyframes p{50%{opacity:.25}}
+  .modal{position:fixed;inset:0;background:rgba(29,34,56,.55);display:none;align-items:flex-start;justify-content:center;padding:30px 16px;overflow:auto;z-index:10}
+  .modal.visible{display:flex}
+  .modal .caja{background:#fff;border-radius:14px;max-width:1040px;width:100%;padding:22px;position:relative}
+  .modal .cerrar{position:absolute;top:14px;right:14px}
+  .tabs{display:flex;gap:6px;margin:4px 0 16px}
+  .tabs button{border:1px solid var(--azul-borde);background:#fff;color:var(--azul);border-radius:8px;padding:6px 14px;font:inherit;font-weight:600;cursor:pointer}
+  .tabs button.on{background:var(--azul);color:#fff;border-color:var(--azul)}
+  .hero{display:flex;gap:18px;align-items:center;margin-bottom:22px}
+  .hero img{height:96px;width:auto;background:#fff;border:1px solid var(--azul-borde);border-radius:14px;padding:8px 12px;box-shadow:var(--sombra)}
+  @media (max-width:600px){.hero{flex-direction:column;align-items:flex-start}}
+</style>
+</head>
+<body>
+<div id="cab"></div>
+<main>
+  <div class="hero">
+    <img src="img/logo-cervantes.png" alt="Cervantes · Educación con futuro">
+    <div>
+      <h1>Asistencia sin intervención</h1>
+      <p class="sub" style="margin:0">El sistema sigue el horario del profesor: activa el QR del aula, toma la asistencia de Teams,
+        carga Autogestión Cervantes y envía el reporte. Este panel es sólo para mirar. <span id="reloj" class="etq azul"></span></p>
+    </div>
+  </div>
+
+  <div class="grid kpis">
+    <div class="tarjeta kpi"><div class="n" id="k-p">0</div><div class="l">Presenciales hoy</div></div>
+    <div class="tarjeta kpi"><div class="n" id="k-v">0</div><div class="l">Virtuales hoy</div></div>
+    <div class="tarjeta kpi"><div class="n" id="k-a">0</div><div class="l">Ausentes hoy</div></div>
+    <div class="tarjeta kpi"><div class="n" id="k-c">0</div><div class="l">Clases cargadas</div></div>
+  </div>
+
+  <section class="tarjeta robot" id="robot">
+    <div class="cab"><h2 style="margin:0"><span class="pulso"></span>Profesor robot cargando Autogestión Cervantes</h2>
+      <span class="detalle">Nadie está tocando el mouse: los clics los hace el sistema.</span></div>
+    <iframe id="robot-frame" title="Portal Cervantes controlado por el robot"></iframe>
+  </section>
+
+  <div class="grid dos">
+    <section class="tarjeta">
+      <h2>Clases</h2>
+      <div id="clases"><div class="vacio">Sin clases todavía. Iniciá una desde el panel de la derecha.</div></div>
+    </section>
+    <div class="grid">
+      <section class="tarjeta demo">
+        <h2>Simular una clase</h2>
+        <p class="detalle" style="margin-top:-6px">En producción esto lo dispara el horario de la materia. Acá lo adelantamos para mostrarlo.</p>
+        <label for="d-curso">Curso</label>
+        <select id="d-curso"></select>
+        <div class="grid" style="grid-template-columns:1fr 1fr;gap:10px">
+          <div><label for="d-min">Duración (min)</label><input id="d-min" type="number" value="2" min="1"></div>
+          <div><label for="d-esc">Escaneos simulados</label><input id="d-esc" type="number" value="12" min="0" max="30"></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+          <button class="btn" id="b-iniciar">Iniciar clase</button>
+          <a class="btn sec" id="d-aula" href="aula.html?aula=A-201" target="_blank">Abrir pantalla del aula</a>
+        </div>
+        <p class="detalle" style="margin:12px 0 0"><a href="#" id="b-reset">Borrar datos de la demo</a></p>
+      </section>
+      <section class="tarjeta">
+        <h2>Actividad del robot</h2>
+        <div class="log" id="log"></div>
+      </section>
+    </div>
+  </div>
+</main>
+
+<div class="modal" id="modal"><div class="caja">
+  <button class="btn chico sec cerrar" id="m-cerrar">Cerrar</button>
+  <div id="m-cuerpo"></div>
+</div></div>
+
+<script src="js/comun.js"></script>
+<script src="js/motor.js"></script>
+<script>
+document.getElementById("cab").innerHTML = cabecera("Panel");
+const ETQ = {en_curso:["ok","En curso"],esperando_teams:["azul","Leyendo Teams"],cargando_cervantes:["azul","Cargando Cervantes"],
+  enviando_reporte:["azul","Enviando correo"],completada:["ok","Completada"]};
+const NOMBRE_PASOS = ["QR en aula","Teams","Cervantes","Correo","Listo"];
+const sel = document.getElementById("d-curso");
+sel.innerHTML = Object.values(CONFIG.cursos).map(c => `<option value="${c.id}">${c.materia} · ${c.division} (${c.aula})</option>`).join("");
+sel.onchange = () => document.getElementById("d-aula").href = "aula.html?aula=" + CONFIG.cursos[sel.value].aula;
+
+function tarjeta(c){
+  const curso = CONFIG.cursos[c.cursoId], [cls, txt] = ETQ[c.estado], paso = PASOS.indexOf(c.estado);
+  const pasos = NOMBRE_PASOS.map((p, i) => `<div class="paso ${paso > i || c.estado === "completada" ? "hecho" : paso === i ? "activo" : ""}"><div class="b"></div><span>${p}</span></div>`).join("");
+  const r = c.resumen, n = Object.keys(c.checkins).length;
+  const res = r ? `<span class="etq ok">${r.presenciales} presenciales</span> <span class="etq azul">${r.virtuales} virtuales</span> <span class="etq err">${r.ausentes} ausentes</span>`
+                : `<span class="etq azul">${n} escaneos QR</span>`;
+  const acc = c.estado === "en_curso" ? ` <button class="btn chico sec" onclick="terminarYa(${c.id});pintar()">Terminar ya</button>`
+            : c.resumen ? ` <button class="btn chico sec" onclick="detalle(${c.id})">Ver detalle</button>` : "";
+  const ini = new Date(c.inicio), fin = new Date(c.fin);
+  return `<div class="clase"><div class="cab"><div><div class="titulo">${curso.materia} · ${curso.division}</div>
+    <div class="meta">${fechaTxt(ini)} · ${horaTxt(ini)}–${horaTxt(fin)} · Aula ${curso.aula}</div></div><span class="etq ${cls}">${txt}</span></div>
+    <div class="pasos">${pasos}</div><div class="cab"><div class="detalle">${esc(c.detalle)}</div><div>${res}${acc}</div></div></div>`;
+}
+
+function pintar(){
+  const e = leer(), hoy = new Date().toDateString();
+  const deHoy = e.clases.filter(c => new Date(c.inicio).toDateString() === hoy && c.resumen);
+  const suma = k => deHoy.reduce((s, c) => s + c.resumen[k], 0);
+  document.getElementById("reloj").textContent = horaTxt(new Date(), true);
+  document.getElementById("k-p").textContent = suma("presenciales");
+  document.getElementById("k-v").textContent = suma("virtuales");
+  document.getElementById("k-a").textContent = suma("ausentes");
+  document.getElementById("k-c").textContent = deHoy.filter(c => c.estado === "completada").length;
+  document.getElementById("clases").innerHTML = e.clases.length ? e.clases.map(tarjeta).join("")
+    : '<div class="vacio">Sin clases todavía. Iniciá una desde el panel de la derecha.</div>';
+  document.getElementById("log").innerHTML = e.eventos.map(ev =>
+    `<div class="${ev.nivel}"><span class="t">${ev.ts}</span>${ev.claseId ? `<b>#${ev.claseId}</b> ` : ""}${esc(ev.mensaje)}</div>`).join("");
+}
+
+function abrirRobot(id){
+  const caja = document.getElementById("robot");
+  caja.classList.add("visible");
+  document.getElementById("robot-frame").src = "cervantes.html?robot=" + id + "&t=" + Date.now();
+  caja.scrollIntoView({behavior: "smooth", block: "start"});
+}
+window.addEventListener("message", ev => {
+  if (ev.origin !== location.origin || ev.data?.tipo !== "robot_fin") return;
+  robotTermino(ev.data.claseId, ev.data.ok, ev.data.detalle);
+  setTimeout(() => document.getElementById("robot").classList.remove("visible"), 2500);
+  pintar();
+});
+
+function detalle(id, pestaña = "alumnos"){
+  const c = leer().clases.find(x => x.id === id), curso = CONFIG.cursos[c.cursoId], al = CONFIG.reglas.alertaCamara;
+  const filas = c.registros.slice().sort((a, b) => (a.estado < b.estado) - (a.estado > b.estado) || a.modalidad.localeCompare(b.modalidad) || a.nombre.localeCompare(b.nombre))
+    .map(f => `<tr><td>${f.matricula}</td><td>${esc(f.nombre)}</td><td><span class="etq ${f.estado === "Presente" ? "ok" : "err"}">${f.estado}</span></td>
+    <td>${f.modalidad}</td><td>${f.pct_tiempo != null ? `${Math.round(f.minutos)} min (${f.pct_tiempo}%)` : "—"}</td>
+    <td style="white-space:nowrap">${f.pct_camara != null ? `<span class="barra-cam ${f.pct_camara < al ? "baja" : ""}"><i style="width:${f.pct_camara}%"></i></span>${f.pct_camara}%` : "—"}</td></tr>`).join("");
+  document.getElementById("m-cuerpo").innerHTML = `<h1>${curso.materia} · División ${curso.division}</h1>
+    <p class="sub">${fechaTxt(new Date(c.inicio))} · Aula ${curso.aula}</p>
+    <div class="tabs"><button class="${pestaña === "alumnos" ? "on" : ""}" onclick="detalle(${id},'alumnos')">Alumnos</button>
+      <button class="${pestaña === "correo" ? "on" : ""}" onclick="detalle(${id},'correo')">Correo enviado al profesor</button>
+      <button onclick="csv(${id})">Descargar CSV</button></div>
+    ${pestaña === "correo" ? htmlCorreo(c) : `<div style="overflow-x:auto"><table class="t"><thead><tr><th>Matrícula</th><th>Alumno</th><th>Estado</th><th>Modalidad</th><th>Tiempo</th><th>Cámara</th></tr></thead><tbody>${filas}</tbody></table></div>`}`;
+  document.getElementById("modal").classList.add("visible");
+}
+function csv(id){
+  const c = leer().clases.find(x => x.id === id), f = fechaTxt(new Date(c.inicio));
+  const txt = "﻿Matricula;Nombre;Fecha;Estado;Modalidad;Minutos;% Tiempo;% Camara\n" + c.registros.map(r =>
+    [r.matricula, r.nombre, f, r.estado, r.modalidad, r.minutos ?? "", r.pct_tiempo ?? "", r.pct_camara ?? ""].join(";")).join("\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([txt], {type: "text/csv"})); a.download = `asistencia_${c.cursoId}_${c.id}.csv`; a.click();
+}
+document.getElementById("m-cerrar").onclick = () => document.getElementById("modal").classList.remove("visible");
+document.getElementById("modal").onclick = ev => { if (ev.target.id === "modal") ev.target.classList.remove("visible"); };
+document.getElementById("b-iniciar").onclick = () => {
+  simularClase(sel.value, Math.max(1, +document.getElementById("d-min").value || 2), Math.min(30, +document.getElementById("d-esc").value || 0));
+  pintar();
+};
+document.getElementById("b-reset").onclick = ev => { ev.preventDefault(); guardar(nuevo()); localStorage.removeItem("autopresente_robot"); pintar(); };
+
+pintar();
+setInterval(() => { tickMotor(abrirRobot); pintar(); }, 1000);
+</script>
+</body>
+</html>

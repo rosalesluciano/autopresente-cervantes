@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Registrar asistencia · AutoPresente</title>
+<link rel="icon" href="img/icono-cervantes.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="estilo.css">
+<style>
+  body{background:#fff}
+  .m-cab{background:var(--azul);color:#fff;padding:22px 20px 60px}
+  .m-cab .marca{font-size:15px}
+  .m-tarj{max-width:440px;margin:-40px 16px 30px;background:#fff;border-radius:18px;box-shadow:var(--sombra);border:1px solid var(--azul-borde);padding:26px 22px}
+  @media (min-width:480px){.m-tarj{margin-left:auto;margin-right:auto}}
+  .m-tarj h1{font-size:22px}
+  .icono{width:72px;height:72px;border-radius:50%;display:grid;place-items:center;margin:4px auto 14px;font-size:34px;font-weight:700}
+  .icono.ok{background:var(--ok-suave);color:var(--ok)} .icono.err{background:var(--err-suave);color:var(--err)}
+  .centro{text-align:center}
+  .btn.ancho{width:100%;padding:14px;font-size:16px;margin-top:16px}
+  .spinner{width:34px;height:34px;border:4px solid var(--azul-suave);border-top-color:var(--azul);border-radius:50%;animation:gira 1s linear infinite;margin:auto}
+  @keyframes gira{to{transform:rotate(360deg)}}
+  .logo-g{display:block;height:92px;margin:0 auto 8px}
+</style>
+</head>
+<body>
+<div class="m-cab"><span class="marca"><img class="logo" src="img/icono-cervantes.png" alt="">Cervantes<span class="producto">AutoPresente</span></span></div>
+<div class="m-tarj" id="caja"></div>
+<script src="js/comun.js"></script>
+<script>
+const p = new URLSearchParams(location.search), claseId = +p.get("c"), token = p.get("t");
+const caja = document.getElementById("caja");
+const clase = leer().clases.find(c => c.id === claseId);
+
+function error(titulo, msj){
+  caja.className = "m-tarj centro";
+  caja.innerHTML = `<div class="icono err">!</div><h1>${titulo}</h1><p class="sub">${msj}</p>`;
+}
+
+if (!clase || !tokenValido(claseId, token)) {
+  error(clase ? "Código vencido" : "Clase no encontrada",
+    clase ? "Este QR ya rotó. Volvé a escanear el código que está proyectado en el aula."
+          : "En esta demo el registro funciona en el mismo navegador donde se abrió la pantalla del aula. Tocá el QR desde esa computadora.");
+} else if (clase.estado !== "en_curso") {
+  error("La clase terminó", "El registro presencial sólo está abierto mientras dura la clase.");
+} else {
+  const curso = CONFIG.cursos[clase.cursoId], alumnos = padron(clase.cursoId);
+  caja.innerHTML = `<img class="logo-g" src="img/logo-cervantes.png" alt="Cervantes · Educación con futuro">
+    <h1 class="centro">Ingresá con tu cuenta institucional</h1>
+    <p class="sub centro" style="margin-bottom:8px">${curso.materia} · División ${curso.division}.<br>
+    En producción acá se abre el inicio de sesión de Microsoft 365; en la demo elegí un alumno del padrón.</p>
+    <label for="cuenta">Cuenta</label>
+    <select id="cuenta">${alumnos.map(a => `<option value="${a.matricula}">${esc(a.nombre)} — ${a.email}</option>`).join("")}</select>
+    <button class="btn ancho" id="seguir">Continuar</button>`;
+  document.getElementById("seguir").onclick = () => {
+    const mat = document.getElementById("cuenta").value, alumno = alumnos.find(a => a.matricula === mat);
+    caja.className = "m-tarj centro";
+    caja.innerHTML = `<div class="spinner"></div><h1 style="margin-top:18px">Verificando que estés en el aula…</h1><p class="sub">${alumno.email}</p>`;
+    setTimeout(() => {
+      const r = mutar(e => {
+        const c = e.clases.find(x => x.id === claseId);
+        if (!c || c.estado !== "en_curso") return "cerrada";
+        if (c.checkins[mat]) return "repetido";
+        c.checkins[mat] = { hora: horaTxt(new Date()), metodo: "wifi", ts: Date.now() };
+        log(e, `Check-in QR: ${nombrePila(alumno.nombre)}`, "info", claseId);
+        return "ok";
+      });
+      if (r === "cerrada") return error("La clase terminó", "El registro presencial sólo está abierto mientras dura la clase.");
+      caja.innerHTML = `<div class="icono ok">✓</div><h1>¡Presente, ${esc(alumno.nombre.split(", ")[1])}!</h1>
+        <p class="sub">${r === "repetido" ? "Ya estabas registrado/a en esta clase." : `Tu asistencia quedó registrada a las ${horaTxt(new Date())}.`}<br>
+        ${curso.materia} · División ${curso.division}</p>
+        <p class="detalle">Verificado por Wi-Fi de la facultad. Ya podés cerrar esta pestaña.</p>`;
+    }, 1400);
+  };
+}
+</script>
+</body>
+</html>

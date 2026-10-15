@@ -1,0 +1,53 @@
+{
+  "profesor": {
+    "nombre": "Prof. Demo",
+    "email": "profesor@universidad.edu.ar"
+  },
+  "aulas": {
+    "A-201": {
+      "nombre": "Aula 201 - Edificio Central",
+      "lat": -31.4201,
+      "lon": -64.1888,
+      "radio_metros": 150,
+      "redes_wifi": ["10.10.0.0/16", "192.168.0.0/16", "127.0.0.0/8"]
+    },
+    "LAB-3": {
+      "nombre": "Laboratorio 3",
+      "lat": -31.4205,
+      "lon": -64.1880,
+      "radio_metros": 150,
+      "redes_wifi": ["10.10.0.0/16", "192.168.0.0/16", "127.0.0.0/8"]
+    }
+  },
+  "cursos": [
+    {
+      "id": "PROG2-A",
+      "materia": "Programación II",
+      "division": "A",
+      "aula": "A-201",
+      "teams_asunto": "Programación II - A",
+      "horarios": [
+        {"dia": "lunes", "inicio": "08:00", "fin": "10:00"},
+        {"dia": "miercoles", "inicio": "08:00", "fin": "10:00"}
+      ]
+    },
+    {
+      "id": "BD-B",
+      "materia": "Bases de Datos",
+      "division": "B",
+      "aula": "LAB-3",
+      "teams_asunto": "Bases de Datos - B",
+      "horarios": [
+        {"dia": "martes", "inicio": "18:00", "fin": "20:00"},
+        {"dia": "jueves", "inicio": "18:00", "fin": "20:00"}
+      ]
+    }
+  ],
+  "reglas": {
+    "minutos_espera_tras_clase": 15,
+    "porcentaje_minimo_virtual": 60,
+    "alerta_camara_por_debajo_de": 30,
+    "qr_rotacion_segundos": 20,
+    "checkin_tolerancia_minutos_antes": 10
+  }
+}
