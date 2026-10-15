@@ -7,7 +7,7 @@
 <link rel="icon" href="img/icono-cervantes.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="estilo.css?v=4">
+<link rel="stylesheet" href="estilo.css?v=5">
 <style>
   body{background:#fff}
   .m-cab{background:var(--azul);color:#fff;padding:22px 20px 60px}
@@ -27,27 +27,30 @@
 <body>
 <div class="m-cab"><span class="marca"><img class="logo" src="img/icono-cervantes.png" alt="">Cervantes<span class="producto">AutoPresente</span></span></div>
 <div class="m-tarj" id="caja"></div>
-<script src="js/comun.js?v=4"></script>
+<script src="js/comun.js?v=5"></script>
 <script>
-const p = new URLSearchParams(location.search), claseId = +p.get("c"), token = p.get("t");
+const p = new URLSearchParams(location.search), claseId = +p.get("c"), token = p.get("t"), w = +p.get("w");
 const caja = document.getElementById("caja");
 const finParam = +p.get("f") || null, topic = p.get("s");
 // Misma computadora que la pantalla del aula: la clase está en este navegador.
 const local = leer().clases.find(c => c.id === claseId && (!finParam || c.fin === finParam));
-const cursoId = local ? local.cursoId : p.get("k"), fin = local ? local.fin : finParam;
+const cursoId = local ? local.cursoId : p.get("k");
 
 function error(titulo, msj){
   caja.className = "m-tarj centro";
   caja.innerHTML = `<div class="icono err">!</div><h1>${titulo}</h1><p class="sub">${msj}</p>`;
 }
-const enCurso = () => local ? leer().clases.find(c => c.id === claseId)?.estado === "en_curso" : Date.now() < fin;
+const MENSAJES = {
+  vencido: ["Código vencido", "Pasaron más de 2 minutos desde que escaneaste. Volvé a escanear el código que está proyectado en el aula."],
+  invalido: ["Código no válido", "Volvé a escanear el código que está proyectado en el aula."],
+  cerrada: ["La clase terminó", "El registro presencial sólo está abierto mientras dura la clase."],
+};
 
-if (!CONFIG.cursos[cursoId] || !fin || (!local && !topic)) {
+// Sólo se verifica que el link esté completo: la vigencia la decide la pantalla del aula con su propio reloj.
+if (!CONFIG.cursos[cursoId] || !w || !token || (!local && !topic)) {
   error("Código desactualizado", "Este QR viene de una pantalla del aula con una versión vieja. En la computadora, recargá la pantalla del aula con Ctrl+F5 y volvé a escanear.");
-} else if (!tokenValido(claseId, token)) {
-  error("Código vencido", "Este QR ya rotó. Volvé a escanear el código que está proyectado en el aula.");
-} else if (!enCurso()) {
-  error("La clase terminó", "El registro presencial sólo está abierto mientras dura la clase.");
+} else if (local && local.estado !== "en_curso") {
+  error(...MENSAJES.cerrada);
 } else {
   const curso = CONFIG.cursos[cursoId], alumnos = padron(cursoId);
   caja.innerHTML = `<img class="logo-g" src="img/logo-cervantes.png" alt="Cervantes · Educación con futuro">
@@ -61,18 +64,19 @@ if (!CONFIG.cursos[cursoId] || !fin || (!local && !topic)) {
     const mat = document.getElementById("cuenta").value, alumno = alumnos.find(a => a.matricula === mat);
     caja.className = "m-tarj centro";
     caja.innerHTML = `<div class="spinner"></div><h1 style="margin-top:18px">Verificando que estés en el aula…</h1><p class="sub">${alumno.email}</p>`;
-    const espera = new Promise(r => setTimeout(r, 1200));
-    let r = "ok";
+    const espera = new Promise(r => setTimeout(r, 1000));
+    let r;
     try {
-      if (!enCurso()) r = "cerrada";
-      else if (local) r = registrarCheckin(claseId, mat);
-      else await enviarCheckinRemoto(topic, claseId, mat);
-    } catch {
+      r = local ? registrarCheckin(claseId, mat, w, token) : await enviarCheckinRemoto(topic, claseId, mat, w, token);
+    } catch (err) {
       await espera;
-      return error("Sin conexión", "No pudimos enviar tu asistencia. Revisá que tengas internet y tocá reintentar.<br><br><button class='btn ancho' onclick='location.reload()'>Reintentar</button>");
+      return error(err.message === "sin_respuesta" ? "La pantalla del aula no respondió" : "Sin conexión",
+        (err.message === "sin_respuesta" ? "Verificá que la pantalla del aula siga abierta en la computadora."
+          : "No pudimos enviar tu asistencia. Revisá que tengas internet.") +
+        "<br><br><button class='btn ancho' onclick='location.reload()'>Reintentar</button>");
     }
     await espera;
-    if (r === "cerrada") return error("La clase terminó", "El registro presencial sólo está abierto mientras dura la clase.");
+    if (MENSAJES[r]) return error(...MENSAJES[r]);
     caja.innerHTML = `<div class="icono ok">✓</div><h1>¡Presente, ${esc(alumno.nombre.split(", ")[1])}!</h1>
       <p class="sub">${r === "repetido" ? "Ya estabas registrado/a en esta clase." : `Tu asistencia quedó registrada a las ${horaTxt(new Date())}.`}<br>
       ${curso.materia} · División ${curso.division}</p>

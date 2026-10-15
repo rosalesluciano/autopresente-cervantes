@@ -7,7 +7,7 @@
 <link rel="icon" href="img/icono-cervantes.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="estilo.css?v=4">
+<link rel="stylesheet" href="estilo.css?v=5">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <style>
   body{background:var(--azul);color:#fff;min-height:100vh}
@@ -38,11 +38,11 @@
 <img class="sello" src="img/icono-cervantes.png" alt="Cervantes">
 <div id="raiz"></div>
 <div class="pie" id="pie"></div>
-<script src="js/comun.js?v=4"></script>
+<script src="js/comun.js?v=5"></script>
 <script>
 const aulaId = new URLSearchParams(location.search).get("aula") || "A-201";
 const nombreAula = CONFIG.aulas[aulaId] || aulaId;
-document.getElementById("pie").textContent = `Cervantes · AutoPresente · ${nombreAula} · registro automático de asistencia · v4`;
+document.getElementById("pie").textContent = `Cervantes · AutoPresente · ${nombreAula} · registro automático de asistencia · v5`;
 let ultimoToken = "";
 function ciclo(){
   const e = leer(), raiz = document.getElementById("raiz");
@@ -66,9 +66,9 @@ function ciclo(){
         <div class="contador"><span class="n" id="n">0</span><span class="de" id="de"></span></div>
         <div class="ultimos" id="ult"></div></div></div>`;
   }
-  const token = tokenQR(clase.id);
+  const w = ventanaActual(), token = firmaQR(clase.id, w);
   if (token !== ultimoToken) {
-    const url = new URL(`checkin.html?v=4&c=${clase.id}&k=${clase.cursoId}&f=${clase.fin}&s=${canal()}&t=${token}`, location.href).href;
+    const url = new URL(`checkin.html?v=5&c=${clase.id}&k=${clase.cursoId}&f=${clase.fin}&s=${canal()}&w=${w}&t=${token}`, location.href).href;
     const q = qrcode(0, "M"); q.addData(url); q.make();
     const a = document.getElementById("qr");
     a.innerHTML = q.createSvgTag({cellSize: 8, margin: 2, scalable: true}).replace(/fill="black"/g, 'fill="#2A3355"').replace(/fill="#000000"/g, 'fill="#2A3355"');

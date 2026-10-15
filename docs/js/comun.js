@@ -56,19 +56,27 @@ const horaTxt = (d, seg) => `${dos(d.getHours())}:${dos(d.getMinutes())}${seg ? 
 const fechaTxt = d => `${dos(d.getDate())}/${dos(d.getMonth() + 1)}/${d.getFullYear()}`;
 const nombrePila = nom => { const [ape, n] = nom.split(", "); return `${n} ${ape}`; };
 
-/* Token del QR: cambia cada N segundos; se acepta la ventana actual y la anterior. */
-function tokenQR(claseId, desfase = 0) {
-  const v = Math.floor(Date.now() / 1000 / CONFIG.reglas.rotacionQR) - desfase;
-  let h = 2166136261; for (const ch of `${claseId}:${v}:cervantes`) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+/* Token del QR: cambia cada N segundos. El QR lleva la ventana (w) en que se
+   generó; quien valida es la pantalla del aula con SU reloj, así no importa
+   si el reloj del celular está adelantado o atrasado. */
+const ventanaActual = () => Math.floor(Date.now() / 1000 / CONFIG.reglas.rotacionQR);
+function firmaQR(claseId, w) {
+  let h = 2166136261; for (const ch of `${claseId}:${w}:autopresente`) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
   return (h >>> 0).toString(36);
 }
-// Acepta la ventana anterior, la actual y la siguiente (por si el reloj del celular difiere unos segundos).
-const tokenValido = (claseId, t) => [-1, 0, 1, 2].some(d => t === tokenQR(claseId, d));
+// Válido si la firma coincide y el QR se mostró hace menos de ~2 minutos (tiempo para escanear y elegir la cuenta).
+function tokenValido(claseId, w, t) {
+  const edad = ventanaActual() - w;
+  if (t !== firmaQR(claseId, w)) return "invalido";
+  if (edad > 6) return "vencido";
+  return edad < -1 ? "invalido" : "ok";
+}
 
 /* ── Sincronización celular → pantalla del aula ─────────────────────
    GitHub Pages no tiene servidor, así que el check-in hecho desde el
    celular viaja por un canal privado de ntfy.sh (servicio público de
    mensajes). El nombre del canal es aleatorio y sólo lo conoce el QR.
+   La pantalla del aula valida y responde por el mismo canal.
    Sólo se envían datos ficticios del padrón de demo. */
 const NTFY = "https://ntfy.sh";
 function canal() {
@@ -80,7 +88,9 @@ function canal() {
   return c;
 }
 
-function registrarCheckin(claseId, matricula, origen) {
+function registrarCheckin(claseId, matricula, w, t, origen) {
+  const v = tokenValido(claseId, w, t);
+  if (v !== "ok") return v;
   return mutar(e => {
     const c = e.clases.find(x => x.id === claseId);
     if (!c || c.estado !== "en_curso") return "cerrada";
@@ -92,6 +102,8 @@ function registrarCheckin(claseId, matricula, origen) {
   });
 }
 
+const publicar = (topic, msg) => fetch(`${NTFY}/${encodeURIComponent(topic)}`, { method: "POST", body: JSON.stringify(msg) });
+
 let fuenteCheckins = null;
 function escucharCheckins(alRecibir) {
   if (fuenteCheckins || !window.EventSource) return;
@@ -99,15 +111,29 @@ function escucharCheckins(alRecibir) {
   fuenteCheckins.onmessage = ev => {
     try {
       const m = JSON.parse(JSON.parse(ev.data).message);
-      if (m.tipo === "checkin") { registrarCheckin(+m.claseId, String(m.matricula), "desde celular"); alRecibir && alRecibir(); }
+      if (m.tipo !== "checkin") return;
+      const r = registrarCheckin(+m.claseId, String(m.matricula), +m.w, String(m.t), "desde celular");
+      publicar(canal(), { tipo: "ack", id: m.id, resultado: r }).catch(() => {});
+      alRecibir && alRecibir();
     } catch {}
   };
 }
 
-async function enviarCheckinRemoto(topic, claseId, matricula) {
-  const r = await fetch(`${NTFY}/${encodeURIComponent(topic)}`, {
-    method: "POST", body: JSON.stringify({ tipo: "checkin", claseId, matricula }) });
-  if (!r.ok) throw new Error("HTTP " + r.status);
+/* Desde el celular: envía el check-in y espera la respuesta de la pantalla del aula. */
+function enviarCheckinRemoto(topic, claseId, matricula, w, t) {
+  return new Promise((resolver, rechazar) => {
+    const id = Math.random().toString(36).slice(2);
+    const es = new EventSource(`${NTFY}/${encodeURIComponent(topic)}/sse`);
+    const fin = (fn, v) => { clearTimeout(reloj); es.close(); fn(v); };
+    const reloj = setTimeout(() => fin(rechazar, new Error("sin_respuesta")), 12000);
+    es.onmessage = ev => {
+      try { const m = JSON.parse(JSON.parse(ev.data).message); if (m.tipo === "ack" && m.id === id) fin(resolver, m.resultado); } catch {}
+    };
+    es.addEventListener("open", () => {
+      publicar(topic, { tipo: "checkin", id, claseId, matricula, w, t }).catch(err => fin(rechazar, err));
+    }, { once: true });
+    es.onerror = () => { if (es.readyState === EventSource.CLOSED) fin(rechazar, new Error("sin_conexion")); };
+  });
 }
 
 function cabecera(activo) {
