@@ -7,7 +7,7 @@
 <link rel="icon" href="img/icono-cervantes.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="estilo.css">
+<link rel="stylesheet" href="estilo.css?v=4">
 <style>
   body{background:#fff}
   .m-cab{background:var(--azul);color:#fff;padding:22px 20px 60px}
@@ -27,7 +27,7 @@
 <body>
 <div class="m-cab"><span class="marca"><img class="logo" src="img/icono-cervantes.png" alt="">Cervantes<span class="producto">AutoPresente</span></span></div>
 <div class="m-tarj" id="caja"></div>
-<script src="js/comun.js"></script>
+<script src="js/comun.js?v=4"></script>
 <script>
 const p = new URLSearchParams(location.search), claseId = +p.get("c"), token = p.get("t");
 const caja = document.getElementById("caja");
@@ -43,7 +43,7 @@ function error(titulo, msj){
 const enCurso = () => local ? leer().clases.find(c => c.id === claseId)?.estado === "en_curso" : Date.now() < fin;
 
 if (!CONFIG.cursos[cursoId] || !fin || (!local && !topic)) {
-  error("Código no válido", "Volvé a escanear el código que está proyectado en el aula.");
+  error("Código desactualizado", "Este QR viene de una pantalla del aula con una versión vieja. En la computadora, recargá la pantalla del aula con Ctrl+F5 y volvé a escanear.");
 } else if (!tokenValido(claseId, token)) {
   error("Código vencido", "Este QR ya rotó. Volvé a escanear el código que está proyectado en el aula.");
 } else if (!enCurso()) {
