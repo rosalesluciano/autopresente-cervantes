@@ -73,6 +73,7 @@
           <a class="btn sec" id="d-aula" href="aula.html?aula=A-201" target="_blank">Abrir pantalla del aula</a>
         </div>
         <p class="detalle" style="margin:12px 0 0"><a href="#" id="b-reset">Borrar datos de la demo</a></p>
+        <p class="etq ok" id="reset-ok" style="display:none;margin-top:8px;border-radius:8px;padding:6px 10px"></p>
       </section>
       <section class="tarjeta">
         <h2>Actividad del robot</h2>
@@ -167,8 +168,22 @@ document.getElementById("b-iniciar").onclick = () => {
   simularClase(sel.value, Math.max(1, +document.getElementById("d-min").value || 2), Math.min(30, +document.getElementById("d-esc").value || 0));
   pintar();
 };
-document.getElementById("b-reset").onclick = ev => { ev.preventDefault(); guardar(nuevo()); localStorage.removeItem("autopresente_robot"); pintar(); };
+document.getElementById("b-reset").onclick = ev => {
+  ev.preventDefault();
+  const n = leer().clases.length;
+  if (n && !confirm(`¿Borrar ${n} clase${n > 1 ? "s" : ""} y toda la actividad de la demo?`)) return;
+  guardar(nuevo()); localStorage.removeItem("autopresente_robot");
+  robotEnCurso = null;
+  document.getElementById("robot").classList.remove("visible");
+  document.getElementById("robot-frame").removeAttribute("src");
+  pintar();
+  const aviso = document.getElementById("reset-ok");
+  aviso.textContent = n ? "✓ Datos borrados. Podés iniciar una clase nueva." : "✓ No había datos: la demo ya está limpia.";
+  aviso.style.display = "block";
+  clearTimeout(aviso._t); aviso._t = setTimeout(() => aviso.style.display = "none", 4000);
+};
 
+escucharCheckins(pintar);
 pintar();
 setInterval(() => { tickMotor(abrirRobot); pintar(); }, 1000);
 </script>

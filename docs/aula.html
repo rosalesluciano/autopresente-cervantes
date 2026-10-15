@@ -68,7 +68,7 @@ function ciclo(){
   }
   const token = tokenQR(clase.id);
   if (token !== ultimoToken) {
-    const url = new URL(`checkin.html?c=${clase.id}&t=${token}`, location.href).href;
+    const url = new URL(`checkin.html?c=${clase.id}&k=${clase.cursoId}&f=${clase.fin}&s=${canal()}&t=${token}`, location.href).href;
     const q = qrcode(0, "M"); q.addData(url); q.make();
     const a = document.getElementById("qr");
     a.innerHTML = q.createSvgTag({cellSize: 8, margin: 2, scalable: true}).replace(/fill="black"/g, 'fill="#2A3355"').replace(/fill="#000000"/g, 'fill="#2A3355"');
@@ -82,6 +82,7 @@ function ciclo(){
   document.getElementById("de").textContent = `de ${Object.keys(pad).length} presentes en el aula`;
   document.getElementById("ult").innerHTML = lista.slice(0, 6).map(([m]) => `<span>✓ ${esc(nombrePila(pad[m]))}</span>`).join("");
 }
+escucharCheckins(ciclo);
 ciclo(); setInterval(ciclo, 1000);
 </script>
 </body>

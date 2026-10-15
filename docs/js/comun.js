@@ -62,7 +62,53 @@ function tokenQR(claseId, desfase = 0) {
   let h = 2166136261; for (const ch of `${claseId}:${v}:cervantes`) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
   return (h >>> 0).toString(36);
 }
-const tokenValido = (claseId, t) => t === tokenQR(claseId) || t === tokenQR(claseId, 1);
+// Acepta la ventana anterior, la actual y la siguiente (por si el reloj del celular difiere unos segundos).
+const tokenValido = (claseId, t) => [-1, 0, 1, 2].some(d => t === tokenQR(claseId, d));
+
+/* ── Sincronización celular → pantalla del aula ─────────────────────
+   GitHub Pages no tiene servidor, así que el check-in hecho desde el
+   celular viaja por un canal privado de ntfy.sh (servicio público de
+   mensajes). El nombre del canal es aleatorio y sólo lo conoce el QR.
+   Sólo se envían datos ficticios del padrón de demo. */
+const NTFY = "https://ntfy.sh";
+function canal() {
+  let c = localStorage.getItem("autopresente_canal");
+  if (!c) {
+    c = "autopresente-" + Array.from(crypto.getRandomValues(new Uint8Array(10)), b => b.toString(16).padStart(2, "0")).join("");
+    localStorage.setItem("autopresente_canal", c);
+  }
+  return c;
+}
+
+function registrarCheckin(claseId, matricula, origen) {
+  return mutar(e => {
+    const c = e.clases.find(x => x.id === claseId);
+    if (!c || c.estado !== "en_curso") return "cerrada";
+    if (c.checkins[matricula]) return "repetido";
+    c.checkins[matricula] = { hora: horaTxt(new Date()), metodo: "wifi", ts: Date.now() };
+    const a = padron(c.cursoId).find(x => x.matricula === matricula);
+    log(e, `Check-in QR${origen ? " " + origen : ""}: ${a ? nombrePila(a.nombre) : matricula}`, "info", claseId);
+    return "ok";
+  });
+}
+
+let fuenteCheckins = null;
+function escucharCheckins(alRecibir) {
+  if (fuenteCheckins || !window.EventSource) return;
+  fuenteCheckins = new EventSource(`${NTFY}/${canal()}/sse`);
+  fuenteCheckins.onmessage = ev => {
+    try {
+      const m = JSON.parse(JSON.parse(ev.data).message);
+      if (m.tipo === "checkin") { registrarCheckin(+m.claseId, String(m.matricula), "desde celular"); alRecibir && alRecibir(); }
+    } catch {}
+  };
+}
+
+async function enviarCheckinRemoto(topic, claseId, matricula) {
+  const r = await fetch(`${NTFY}/${encodeURIComponent(topic)}`, {
+    method: "POST", body: JSON.stringify({ tipo: "checkin", claseId, matricula }) });
+  if (!r.ok) throw new Error("HTTP " + r.status);
+}
 
 function cabecera(activo) {
   const enlaces = [["index.html", "Panel"], ["aula.html?aula=A-201", "Pantalla A-201"], ["aula.html?aula=LAB-3", "Pantalla LAB-3"],

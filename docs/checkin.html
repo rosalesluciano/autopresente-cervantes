@@ -31,21 +31,25 @@
 <script>
 const p = new URLSearchParams(location.search), claseId = +p.get("c"), token = p.get("t");
 const caja = document.getElementById("caja");
-const clase = leer().clases.find(c => c.id === claseId);
+const finParam = +p.get("f") || null, topic = p.get("s");
+// Misma computadora que la pantalla del aula: la clase está en este navegador.
+const local = leer().clases.find(c => c.id === claseId && (!finParam || c.fin === finParam));
+const cursoId = local ? local.cursoId : p.get("k"), fin = local ? local.fin : finParam;
 
 function error(titulo, msj){
   caja.className = "m-tarj centro";
   caja.innerHTML = `<div class="icono err">!</div><h1>${titulo}</h1><p class="sub">${msj}</p>`;
 }
+const enCurso = () => local ? leer().clases.find(c => c.id === claseId)?.estado === "en_curso" : Date.now() < fin;
 
-if (!clase || !tokenValido(claseId, token)) {
-  error(clase ? "Código vencido" : "Clase no encontrada",
-    clase ? "Este QR ya rotó. Volvé a escanear el código que está proyectado en el aula."
-          : "En esta demo el registro funciona en el mismo navegador donde se abrió la pantalla del aula. Tocá el QR desde esa computadora.");
-} else if (clase.estado !== "en_curso") {
+if (!CONFIG.cursos[cursoId] || !fin || (!local && !topic)) {
+  error("Código no válido", "Volvé a escanear el código que está proyectado en el aula.");
+} else if (!tokenValido(claseId, token)) {
+  error("Código vencido", "Este QR ya rotó. Volvé a escanear el código que está proyectado en el aula.");
+} else if (!enCurso()) {
   error("La clase terminó", "El registro presencial sólo está abierto mientras dura la clase.");
 } else {
-  const curso = CONFIG.cursos[clase.cursoId], alumnos = padron(clase.cursoId);
+  const curso = CONFIG.cursos[cursoId], alumnos = padron(cursoId);
   caja.innerHTML = `<img class="logo-g" src="img/logo-cervantes.png" alt="Cervantes · Educación con futuro">
     <h1 class="centro">Ingresá con tu cuenta institucional</h1>
     <p class="sub centro" style="margin-bottom:8px">${curso.materia} · División ${curso.division}.<br>
@@ -53,25 +57,26 @@ if (!clase || !tokenValido(claseId, token)) {
     <label for="cuenta">Cuenta</label>
     <select id="cuenta">${alumnos.map(a => `<option value="${a.matricula}">${esc(a.nombre)} — ${a.email}</option>`).join("")}</select>
     <button class="btn ancho" id="seguir">Continuar</button>`;
-  document.getElementById("seguir").onclick = () => {
+  document.getElementById("seguir").onclick = async () => {
     const mat = document.getElementById("cuenta").value, alumno = alumnos.find(a => a.matricula === mat);
     caja.className = "m-tarj centro";
     caja.innerHTML = `<div class="spinner"></div><h1 style="margin-top:18px">Verificando que estés en el aula…</h1><p class="sub">${alumno.email}</p>`;
-    setTimeout(() => {
-      const r = mutar(e => {
-        const c = e.clases.find(x => x.id === claseId);
-        if (!c || c.estado !== "en_curso") return "cerrada";
-        if (c.checkins[mat]) return "repetido";
-        c.checkins[mat] = { hora: horaTxt(new Date()), metodo: "wifi", ts: Date.now() };
-        log(e, `Check-in QR: ${nombrePila(alumno.nombre)}`, "info", claseId);
-        return "ok";
-      });
-      if (r === "cerrada") return error("La clase terminó", "El registro presencial sólo está abierto mientras dura la clase.");
-      caja.innerHTML = `<div class="icono ok">✓</div><h1>¡Presente, ${esc(alumno.nombre.split(", ")[1])}!</h1>
-        <p class="sub">${r === "repetido" ? "Ya estabas registrado/a en esta clase." : `Tu asistencia quedó registrada a las ${horaTxt(new Date())}.`}<br>
-        ${curso.materia} · División ${curso.division}</p>
-        <p class="detalle">Verificado por Wi-Fi de la facultad. Ya podés cerrar esta pestaña.</p>`;
-    }, 1400);
+    const espera = new Promise(r => setTimeout(r, 1200));
+    let r = "ok";
+    try {
+      if (!enCurso()) r = "cerrada";
+      else if (local) r = registrarCheckin(claseId, mat);
+      else await enviarCheckinRemoto(topic, claseId, mat);
+    } catch {
+      await espera;
+      return error("Sin conexión", "No pudimos enviar tu asistencia. Revisá que tengas internet y tocá reintentar.<br><br><button class='btn ancho' onclick='location.reload()'>Reintentar</button>");
+    }
+    await espera;
+    if (r === "cerrada") return error("La clase terminó", "El registro presencial sólo está abierto mientras dura la clase.");
+    caja.innerHTML = `<div class="icono ok">✓</div><h1>¡Presente, ${esc(alumno.nombre.split(", ")[1])}!</h1>
+      <p class="sub">${r === "repetido" ? "Ya estabas registrado/a en esta clase." : `Tu asistencia quedó registrada a las ${horaTxt(new Date())}.`}<br>
+      ${curso.materia} · División ${curso.division}</p>
+      <p class="detalle">Verificado por Wi-Fi de la facultad. Ya podés cerrar esta pestaña.</p>`;
   };
 }
 </script>
