@@ -7,7 +7,7 @@
 <link rel="icon" href="img/icono-cervantes.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="estilo.css?v=5">
+<link rel="stylesheet" href="estilo.css?v=6">
 <style>
   body{background:#fff}
   .m-cab{background:var(--azul);color:#fff;padding:22px 20px 60px}
@@ -27,7 +27,7 @@
 <body>
 <div class="m-cab"><span class="marca"><img class="logo" src="img/icono-cervantes.png" alt="">Cervantes<span class="producto">AutoPresente</span></span></div>
 <div class="m-tarj" id="caja"></div>
-<script src="js/comun.js?v=5"></script>
+<script src="js/comun.js?v=6"></script>
 <script>
 const p = new URLSearchParams(location.search), claseId = +p.get("c"), token = p.get("t"), w = +p.get("w");
 const caja = document.getElementById("caja");
@@ -35,6 +35,7 @@ const finParam = +p.get("f") || null, topic = p.get("s");
 // Misma computadora que la pantalla del aula: la clase está en este navegador.
 const local = leer().clases.find(c => c.id === claseId && (!finParam || c.fin === finParam));
 const cursoId = local ? local.cursoId : p.get("k");
+const real = local ? !!local.real : p.get("m") === "r";
 
 function error(titulo, msj){
   caja.className = "m-tarj centro";
@@ -44,30 +45,54 @@ const MENSAJES = {
   vencido: ["Código vencido", "Pasaron más de 2 minutos desde que escaneaste. Volvé a escanear el código que está proyectado en el aula."],
   invalido: ["Código no válido", "Volvé a escanear el código que está proyectado en el aula."],
   cerrada: ["La clase terminó", "El registro presencial sólo está abierto mientras dura la clase."],
+  dominio: ["Usá tu mail institucional", `El mail tiene que terminar en @${CONFIG.dominio}. Volvé a escanear el QR e ingresalo de nuevo.`],
+  datos: ["Faltan datos", "Revisá tu nombre y tu matrícula (sólo números). Volvé a escanear el QR e intentá de nuevo."],
+  no_padron: ["No figurás en el padrón", "Tu mail no está en el padrón de esta materia."],
+  matricula_en_uso: ["Matrícula ya registrada", "Otra persona ya se registró con esa matrícula en esta clase. Revisá el número y volvé a escanear el QR."],
 };
 
-// Sólo se verifica que el link esté completo: la vigencia la decide la pantalla del aula con su propio reloj.
+// Datos que el alumno ya escribió en este celular (para no tipearlos de nuevo en la próxima clase).
+let guardados = {}; try { guardados = JSON.parse(localStorage.getItem("autopresente_alumno")) || {}; } catch {}
+
 if (!CONFIG.cursos[cursoId] || !w || !token || (!local && !topic)) {
   error("Código desactualizado", "Este QR viene de una pantalla del aula con una versión vieja. En la computadora, recargá la pantalla del aula con Ctrl+F5 y volvé a escanear.");
 } else if (local && local.estado !== "en_curso") {
   error(...MENSAJES.cerrada);
 } else {
   const curso = CONFIG.cursos[cursoId], alumnos = padron(cursoId);
+  const formReal = `
+    <label for="nombre">Nombre y apellido</label><input id="nombre" autocomplete="name" value="${esc(guardados.nombre || "")}" placeholder="Ana Gómez">
+    <label for="matricula">Matrícula</label><input id="matricula" inputmode="numeric" pattern="[0-9]*" value="${esc(guardados.matricula || "")}" placeholder="45123">
+    <label for="email">Mail institucional</label><input id="email" type="email" autocomplete="email" value="${esc(guardados.email || "")}" placeholder="nombre.apellido@${CONFIG.dominio}">
+    <p class="detalle" id="aviso" style="color:var(--err);min-height:1.2em;margin:6px 0 0"></p>`;
+  const formDemo = `<label for="cuenta">Cuenta</label>
+    <select id="cuenta">${alumnos.map(a => `<option value="${a.matricula}">${esc(a.nombre)} — ${a.email}</option>`).join("")}</select>`;
   caja.innerHTML = `<img class="logo-g" src="img/logo-cervantes.png" alt="Cervantes · Educación con futuro">
-    <h1 class="centro">Ingresá con tu cuenta institucional</h1>
+    <h1 class="centro">Registrá tu asistencia</h1>
     <p class="sub centro" style="margin-bottom:8px">${curso.materia} · División ${curso.division}.<br>
-    En producción acá se abre el inicio de sesión de Microsoft 365; en la demo elegí un alumno del padrón.</p>
-    <label for="cuenta">Cuenta</label>
-    <select id="cuenta">${alumnos.map(a => `<option value="${a.matricula}">${esc(a.nombre)} — ${a.email}</option>`).join("")}</select>
-    <button class="btn ancho" id="seguir">Continuar</button>`;
+    ${real ? "En producción se entra con la cuenta de Microsoft 365. En esta prueba, completá tus datos." : "Demo: elegí un alumno del padrón ficticio."}</p>
+    ${real ? formReal : formDemo}
+    <button class="btn ancho" id="seguir">Registrar asistencia</button>`;
   document.getElementById("seguir").onclick = async () => {
-    const mat = document.getElementById("cuenta").value, alumno = alumnos.find(a => a.matricula === mat);
+    let alumno;
+    if (real) {
+      alumno = { nombre: document.getElementById("nombre").value.trim().replace(/\s+/g, " "),
+        matricula: document.getElementById("matricula").value.trim(), email: document.getElementById("email").value.trim().toLowerCase() };
+      const aviso = document.getElementById("aviso");
+      if (alumno.nombre.length < 3) return aviso.textContent = "Escribí tu nombre y apellido.";
+      if (!/^\d{3,10}$/.test(alumno.matricula)) return aviso.textContent = "La matrícula va sólo con números.";
+      if (!emailValido(alumno.email)) return aviso.textContent = `El mail tiene que terminar en @${CONFIG.dominio}.`;
+      try { localStorage.setItem("autopresente_alumno", JSON.stringify(alumno)); } catch {}
+    } else {
+      const a = alumnos.find(x => x.matricula === document.getElementById("cuenta").value);
+      alumno = { nombre: a.nombre, matricula: a.matricula, email: a.email };
+    }
     caja.className = "m-tarj centro";
-    caja.innerHTML = `<div class="spinner"></div><h1 style="margin-top:18px">Verificando que estés en el aula…</h1><p class="sub">${alumno.email}</p>`;
+    caja.innerHTML = `<div class="spinner"></div><h1 style="margin-top:18px">Registrando tu asistencia…</h1><p class="sub">${esc(alumno.email)}</p>`;
     const espera = new Promise(r => setTimeout(r, 1000));
     let r;
     try {
-      r = local ? registrarCheckin(claseId, mat, w, token) : await enviarCheckinRemoto(topic, claseId, mat, w, token);
+      r = local ? registrarCheckin(claseId, alumno, w, token) : await enviarCheckinRemoto(topic, claseId, alumno, w, token);
     } catch (err) {
       await espera;
       return error(err.message === "sin_respuesta" ? "La pantalla del aula no respondió" : "Sin conexión",
@@ -77,10 +102,10 @@ if (!CONFIG.cursos[cursoId] || !w || !token || (!local && !topic)) {
     }
     await espera;
     if (MENSAJES[r]) return error(...MENSAJES[r]);
-    caja.innerHTML = `<div class="icono ok">✓</div><h1>¡Presente, ${esc(alumno.nombre.split(", ")[1])}!</h1>
+    caja.innerHTML = `<div class="icono ok">✓</div><h1>¡Presente, ${esc(primerNombre(alumno.nombre))}!</h1>
       <p class="sub">${r === "repetido" ? "Ya estabas registrado/a en esta clase." : `Tu asistencia quedó registrada a las ${horaTxt(new Date())}.`}<br>
       ${curso.materia} · División ${curso.division}</p>
-      <p class="detalle">Verificado por Wi-Fi de la facultad. Ya podés cerrar esta pestaña.</p>`;
+      <p class="detalle">${esc(alumno.email)} · Matrícula ${esc(alumno.matricula)}<br>Ya podés cerrar esta pestaña.</p>`;
   };
 }
 </script>

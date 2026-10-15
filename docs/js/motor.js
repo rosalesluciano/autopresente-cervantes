@@ -1,19 +1,21 @@
 /* Motor del pipeline (corre en el panel): en_curso → Teams → Cervantes → correo → completada. */
 const PASOS = ["en_curso", "esperando_teams", "cargando_cervantes", "enviando_reporte", "completada"];
 
-function simularClase(cursoId, minutos, escaneos) {
+/* real = prueba con personas de verdad: sin padrón ficticio, sin escaneos ni Teams simulados. */
+function simularClase(cursoId, minutos, escaneos, real = false) {
   return mutar(e => {
     const ini = new Date(), fin = new Date(ini.getTime() + minutos * 60000);
     const id = e.sig++;
     const alumnos = padron(cursoId), r = rng(id + cursoId + ini.getTime());
     const checkins = {};
-    alumnos.map(a => [r(), a]).sort((x, y) => x[0] - y[0]).slice(0, escaneos)
+    if (!real) alumnos.map(a => [r(), a]).sort((x, y) => x[0] - y[0]).slice(0, escaneos)
       .forEach(([, a]) => checkins[a.matricula] = { hora: horaTxt(ini), metodo: "wifi" });
     e.clases.unshift({ id, cursoId, inicio: ini.getTime(), fin: fin.getTime(), estado: "en_curso",
-      detalle: "QR activo en el aula", checkins, registros: null, resumen: null, finTs: null });
+      detalle: real ? "QR activo en el aula · prueba real" : "QR activo en el aula", checkins, registros: null, resumen: null,
+      real, roster: real ? [] : null });
     const c = CONFIG.cursos[cursoId];
     log(e, `Clase programada ${c.materia} ${horaTxt(ini)}-${horaTxt(fin)}`, "info", id);
-    log(e, "QR activo en el aula", "info", id);
+    log(e, real ? "QR activo en el aula · prueba real: sólo cuentan los QR escaneados" : "QR activo en el aula", "info", id);
     return id;
   });
 }
@@ -28,6 +30,7 @@ function estado(e, c, nuevo, detalle) {
 
 /* Reporte de asistencia de Teams simulado para quienes no escanearon el QR. */
 function teamsSimulado(c) {
+  if (c.real) return [];   // prueba real: no se inventan asistentes virtuales
   const r = rng("teams" + c.id), dur = (c.fin - c.inicio) / 1000, salida = [];
   for (const a of padron(c.cursoId)) {
     if (c.checkins[a.matricula] || r() < 0.35) continue;
@@ -40,7 +43,7 @@ function teamsSimulado(c) {
 
 function consolidar(c, virtuales) {
   const durMin = (c.fin - c.inicio) / 60000, porEmail = Object.fromEntries(virtuales.map(v => [v.email, v]));
-  c.registros = padron(c.cursoId).map(a => {
+  c.registros = rosterDe(c).map(a => {
     const ck = c.checkins[a.matricula], v = porEmail[a.email];
     const f = { ...a, estado: "Ausente", modalidad: "-", minutos: null, pct_tiempo: null, pct_camara: null };
     if (ck) Object.assign(f, { estado: "Presente", modalidad: "Presencial" });
@@ -116,6 +119,7 @@ function htmlCorreo(c) {
     </div>
     <div style="padding:20px 24px">
       <table style="width:100%;border-collapse:separate;border-spacing:8px 0"><tr>${kpi(r.presenciales, "Presenciales")}${kpi(r.virtuales, "Virtuales")}${kpi(r.ausentes, "Ausentes")}</tr></table>
+      ${c.real ? `<p style="font-size:13px;color:#5b6280;margin:16px 0 0">Prueba real: sólo figuran las personas que escanearon el QR en el aula.</p>` : ""}
       <h3 style="color:${AZ};font-size:15px;margin:22px 0 6px">Participación virtual · cámara encendida</h3>
       <table style="width:100%;border-collapse:collapse;font-size:14px">${filas}</table>
       <h3 style="color:${AZ};font-size:15px;margin:22px 0 6px">Ausentes</h3>

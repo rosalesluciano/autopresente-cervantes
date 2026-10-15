@@ -42,7 +42,7 @@ def cargar():
 def _ficticio(curso_id: str, n: int = 30) -> list[tuple]:
     rnd = random.Random(curso_id)
     usados, filas = set(), []
-    dominio = config.MS_DOMINIO_ALUMNOS or "universidad.edu.ar"
+    dominio = config.MS_DOMINIO_ALUMNOS or "cervantes.edu.ar"
     while len(filas) < n:
         nom, ape = rnd.choice(NOMBRES), rnd.choice(APELLIDOS)
         if (nom, ape) in usados:

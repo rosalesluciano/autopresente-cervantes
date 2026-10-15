@@ -1,7 +1,8 @@
 /* Estado compartido entre pestañas (panel, pantalla del aula, check-in, portal).
    Versión estática para GitHub Pages: todo corre en el navegador con localStorage. */
 const CONFIG = {
-  profesor: { nombre: "Prof. Demo", email: "profesor@universidad.edu.ar" },
+  profesor: { nombre: "Prof. Demo", email: "profesor@cervantes.edu.ar" },
+  dominio: "cervantes.edu.ar",
   aulas: { "A-201": "Aula 201 · Edificio Central", "LAB-3": "Laboratorio 3" },
   cursos: {
     "PROG2-A": { id: "PROG2-A", materia: "Programación II", division: "A", aula: "A-201" },
@@ -31,7 +32,7 @@ function padron(cursoId) {
     const n = elegir(r, NOMBRES), a = elegir(r, APELLIDOS);
     if (usados.has(n + a)) continue; usados.add(n + a);
     lista.push({ matricula: String(40000 + Math.floor(r() * 10000)), nombre: `${a}, ${n}`,
-      email: `${sinTildes(n)}.${sinTildes(a)}@universidad.edu.ar` });
+      email: `${sinTildes(n)}.${sinTildes(a)}@${CONFIG.dominio}` });
   }
   return lista.sort((x, y) => x.nombre.localeCompare(y.nombre, "es"));
 }
@@ -54,7 +55,12 @@ const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "
 const dos = n => String(n).padStart(2, "0");
 const horaTxt = (d, seg) => `${dos(d.getHours())}:${dos(d.getMinutes())}${seg ? ":" + dos(d.getSeconds()) : ""}`;
 const fechaTxt = d => `${dos(d.getDate())}/${dos(d.getMonth() + 1)}/${d.getFullYear()}`;
-const nombrePila = nom => { const [ape, n] = nom.split(", "); return `${n} ${ape}`; };
+// "Apellido, Nombre" (padrón) → "Nombre Apellido"; un nombre escrito por el alumno queda como está.
+const nombrePila = nom => { if (!nom.includes(", ")) return nom; const [ape, n] = nom.split(", "); return `${n} ${ape}`; };
+const primerNombre = nom => nom.includes(", ") ? nom.split(", ")[1].split(" ")[0] : nom.split(" ")[0];
+const emailValido = e => new RegExp(`^[^@\\s]+@${CONFIG.dominio.replace(/\./g, "\\.")}$`, "i").test(e.trim());
+// Alumnos de la clase: en una prueba real, sólo quienes escanearon; en la simulación, el padrón ficticio.
+const rosterDe = c => c.roster || padron(c.cursoId);
 
 /* Token del QR: cambia cada N segundos. El QR lleva la ventana (w) en que se
    generó; quien valida es la pantalla del aula con SU reloj, así no importa
@@ -77,7 +83,7 @@ function tokenValido(claseId, w, t) {
    celular viaja por un canal privado de ntfy.sh (servicio público de
    mensajes). El nombre del canal es aleatorio y sólo lo conoce el QR.
    La pantalla del aula valida y responde por el mismo canal.
-   Sólo se envían datos ficticios del padrón de demo. */
+   Viajan nombre, matrícula y mail del alumno: es un canal público, sirve para la prueba, no para producción. */
 const NTFY = "https://ntfy.sh";
 function canal() {
   let c = localStorage.getItem("autopresente_canal");
@@ -88,16 +94,28 @@ function canal() {
   return c;
 }
 
-function registrarCheckin(claseId, matricula, w, t, origen) {
+/* alumno = {matricula, nombre, email}. Lo valida la pantalla del aula (o el panel). */
+function registrarCheckin(claseId, alumno, w, t, origen) {
   const v = tokenValido(claseId, w, t);
   if (v !== "ok") return v;
+  const email = String(alumno.email || "").trim().toLowerCase();
+  const matricula = String(alumno.matricula || "").trim(), nombre = String(alumno.nombre || "").trim().replace(/\s+/g, " ");
+  if (!emailValido(email)) return "dominio";
+  if (!/^\d{3,10}$/.test(matricula) || nombre.length < 3) return "datos";
   return mutar(e => {
     const c = e.clases.find(x => x.id === claseId);
     if (!c || c.estado !== "en_curso") return "cerrada";
-    if (c.checkins[matricula]) return "repetido";
-    c.checkins[matricula] = { hora: horaTxt(new Date()), metodo: "wifi", ts: Date.now() };
-    const a = padron(c.cursoId).find(x => x.matricula === matricula);
-    log(e, `Check-in QR${origen ? " " + origen : ""}: ${a ? nombrePila(a.nombre) : matricula}`, "info", claseId);
+    const roster = rosterDe(c);
+    let a = roster.find(x => x.email === email);
+    if (!a) {
+      if (!c.roster) return "no_padron";                       // simulación: sólo el padrón ficticio
+      if (roster.some(x => x.matricula === matricula)) return "matricula_en_uso";
+      a = { matricula, nombre, email };
+      c.roster.push(a);
+    }
+    if (c.checkins[a.matricula]) return "repetido";
+    c.checkins[a.matricula] = { hora: horaTxt(new Date()), metodo: "qr", ts: Date.now() };
+    log(e, `Check-in QR${origen ? " " + origen : ""}: ${nombrePila(a.nombre)} (${a.email})`, "info", claseId);
     return "ok";
   });
 }
@@ -112,7 +130,7 @@ function escucharCheckins(alRecibir) {
     try {
       const m = JSON.parse(JSON.parse(ev.data).message);
       if (m.tipo !== "checkin") return;
-      const r = registrarCheckin(+m.claseId, String(m.matricula), +m.w, String(m.t), "desde celular");
+      const r = registrarCheckin(+m.claseId, m.alumno || {}, +m.w, String(m.t), "desde celular");
       publicar(canal(), { tipo: "ack", id: m.id, resultado: r }).catch(() => {});
       alRecibir && alRecibir();
     } catch {}
@@ -120,7 +138,7 @@ function escucharCheckins(alRecibir) {
 }
 
 /* Desde el celular: envía el check-in y espera la respuesta de la pantalla del aula. */
-function enviarCheckinRemoto(topic, claseId, matricula, w, t) {
+function enviarCheckinRemoto(topic, claseId, alumno, w, t) {
   return new Promise((resolver, rechazar) => {
     const id = Math.random().toString(36).slice(2);
     const es = new EventSource(`${NTFY}/${encodeURIComponent(topic)}/sse`);
@@ -130,7 +148,7 @@ function enviarCheckinRemoto(topic, claseId, matricula, w, t) {
       try { const m = JSON.parse(JSON.parse(ev.data).message); if (m.tipo === "ack" && m.id === id) fin(resolver, m.resultado); } catch {}
     };
     es.addEventListener("open", () => {
-      publicar(topic, { tipo: "checkin", id, claseId, matricula, w, t }).catch(err => fin(rechazar, err));
+      publicar(topic, { tipo: "checkin", id, claseId, alumno, w, t }).catch(err => fin(rechazar, err));
     }, { once: true });
     es.onerror = () => { if (es.readyState === EventSource.CLOSED) fin(rechazar, new Error("sin_conexion")); };
   });

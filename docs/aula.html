@@ -7,7 +7,7 @@
 <link rel="icon" href="img/icono-cervantes.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="estilo.css?v=5">
+<link rel="stylesheet" href="estilo.css?v=6">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <style>
   body{background:var(--azul);color:#fff;min-height:100vh}
@@ -38,11 +38,11 @@
 <img class="sello" src="img/icono-cervantes.png" alt="Cervantes">
 <div id="raiz"></div>
 <div class="pie" id="pie"></div>
-<script src="js/comun.js?v=5"></script>
+<script src="js/comun.js?v=6"></script>
 <script>
 const aulaId = new URLSearchParams(location.search).get("aula") || "A-201";
 const nombreAula = CONFIG.aulas[aulaId] || aulaId;
-document.getElementById("pie").textContent = `Cervantes · AutoPresente · ${nombreAula} · registro automático de asistencia · v5`;
+document.getElementById("pie").textContent = `Cervantes · AutoPresente · ${nombreAula} · registro automático de asistencia · v6`;
 let ultimoToken = "";
 function ciclo(){
   const e = leer(), raiz = document.getElementById("raiz");
@@ -68,7 +68,7 @@ function ciclo(){
   }
   const w = ventanaActual(), token = firmaQR(clase.id, w);
   if (token !== ultimoToken) {
-    const url = new URL(`checkin.html?v=5&c=${clase.id}&k=${clase.cursoId}&f=${clase.fin}&s=${canal()}&w=${w}&t=${token}`, location.href).href;
+    const url = new URL(`checkin.html?v=6&c=${clase.id}&k=${clase.cursoId}&f=${clase.fin}&s=${canal()}&w=${w}&t=${token}${clase.real ? "&m=r" : ""}`, location.href).href;
     const q = qrcode(0, "M"); q.addData(url); q.make();
     const a = document.getElementById("qr");
     a.innerHTML = q.createSvgTag({cellSize: 8, margin: 2, scalable: true}).replace(/fill="black"/g, 'fill="#2A3355"').replace(/fill="#000000"/g, 'fill="#2A3355"');
@@ -77,10 +77,10 @@ function ciclo(){
   const seg = CONFIG.reglas.rotacionQR, resto = seg - Math.floor(Date.now() / 1000) % seg;
   document.getElementById("rot").style.width = (100 * resto / seg) + "%";
   const lista = Object.entries(clase.checkins).sort((a, b) => (b[1].ts || 0) - (a[1].ts || 0));
-  const pad = Object.fromEntries(padron(clase.cursoId).map(a => [a.matricula, a.nombre]));
+  const pad = Object.fromEntries(rosterDe(clase).map(a => [a.matricula, a.nombre]));
   document.getElementById("n").textContent = lista.length;
-  document.getElementById("de").textContent = `de ${Object.keys(pad).length} presentes en el aula`;
-  document.getElementById("ult").innerHTML = lista.slice(0, 6).map(([m]) => `<span>✓ ${esc(nombrePila(pad[m]))}</span>`).join("");
+  document.getElementById("de").textContent = clase.real ? (lista.length === 1 ? "presente en el aula" : "presentes en el aula") : `de ${Object.keys(pad).length} presentes en el aula`;
+  document.getElementById("ult").innerHTML = lista.slice(0, 6).map(([m]) => `<span>✓ ${esc(nombrePila(pad[m] || m))}</span>`).join("");
 }
 escucharCheckins(ciclo);
 ciclo(); setInterval(ciclo, 1000);

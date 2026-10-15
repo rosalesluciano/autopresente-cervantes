@@ -32,11 +32,12 @@ ul a{color:#003399;text-decoration:underline;cursor:pointer}
 <div class="top">Autogestión Cervantes <small>v2.3.1 — Módulo Docente</small></div>
 <div id="vista"></div>
 <svg id="cursor" viewBox="0 0 24 24"><path d="M3 2l7 19 2.6-7.4L20 11z" fill="#fff" stroke="#000" stroke-width="1.6" stroke-linejoin="round"/></svg>
-<script src="js/comun.js?v=5"></script>
+<script src="js/comun.js?v=6"></script>
 <script>
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 const vista = document.getElementById("vista");
 const menu = `<div class="menu"><a data-ir="inicio">Inicio</a><a data-ir="catedra">Cátedra</a><a>Mensajes</a><a data-ir="login">Salir</a></div>`;
+let jobActual = null;
 let filtros = {materia: "", division: "", mes: "", fecha: ""}, guardado = false;
 
 function opciones(vals, sel){ return "<option value=''>-- Seleccione --</option>" + vals.map(v => `<option${v === sel ? " selected" : ""}>${esc(v)}</option>`).join(""); }
@@ -65,12 +66,18 @@ function pintarAsistencia(){
     <label>Fecha</label><select id="f-fecha">${opciones(dias(MESES.indexOf(filtros.mes)), filtros.fecha)}</select><br><br>
     <button id="buscar">Buscar</button></div>`;
   const curso = Object.values(CONFIG.cursos).find(c => c.materia === filtros.materia && c.division === filtros.division);
+  let clave = null, filasP = [];
   if (curso && filtros.fecha && filtros.buscado) {
-    const prev = leer().portal[`${curso.id}|${filtros.fecha}`] || {};
+    clave = `${curso.id}|${filtros.fecha}`;
+    const est = leer(), prev = est.portal[clave] || {};
+    // Filas: los alumnos de la clase que carga el robot, o lo último guardado, o el padrón ficticio.
+    filasP = jobActual && jobActual.materia === curso.materia && jobActual.division === curso.division && jobActual.fecha === filtros.fecha
+      ? jobActual.filas : (est.portalRoster || {})[clave] || padron(curso.id);
     html += `<div class="caja"><h2>${esc(curso.materia)} — División ${curso.division} — ${filtros.fecha}</h2>
       ${guardado ? '<div class="ok" id="ok">Asistencia guardada correctamente.</div>' : ""}
       <table id="tabla"><thead><tr><th>Matrícula</th><th>Apellido y nombre</th><th></th><th></th></tr></thead><tbody>
-      ${padron(curso.id).map(a => `<tr data-m="${a.matricula}"><td>${a.matricula}</td><td>${esc(a.nombre)}</td>
+      ${filasP.length ? "" : `<tr><td colspan="4">No hay alumnos para esta fecha.</td></tr>`}
+      ${filasP.map(a => `<tr data-m="${a.matricula}"><td>${a.matricula}</td><td>${esc(a.nombre)}</td>
         <td><label style="width:auto"><input type="radio" name="a_${a.matricula}" value="P"${prev[a.matricula] === "P" ? " checked" : ""}> Presente</label></td>
         <td><label style="width:auto"><input type="radio" name="a_${a.matricula}" value="A"${prev[a.matricula] === "A" ? " checked" : ""}> Ausente</label></td></tr>`).join("")}
       </tbody></table><br><button id="guardar">Guardar</button></div>`;
@@ -85,7 +92,9 @@ function pintarAsistencia(){
   if (g) g.onclick = () => {
     mutar(e => { const reg = {}; document.querySelectorAll("#tabla tr[data-m]").forEach(tr => {
       const r = tr.querySelector("input:checked"); if (r) reg[tr.dataset.m] = r.value; });
-      e.portal[`${curso.id}|${filtros.fecha}`] = reg; });
+      e.portal[clave] = reg;
+      e.portalRoster = e.portalRoster || {};
+      e.portalRoster[clave] = filasP.map(a => ({ matricula: a.matricula, nombre: a.nombre })); });
     guardado = true; pintarAsistencia();
   };
 }
@@ -122,6 +131,7 @@ async function esperar(sel){
 async function robot(claseId){
   const job = JSON.parse(localStorage.getItem("autopresente_robot") || "null");
   if (!job || job.claseId !== claseId) return;
+  jobActual = job;
   cursor.style.display = "block";
   try {
     ir("login");

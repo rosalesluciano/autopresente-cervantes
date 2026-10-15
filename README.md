@@ -56,7 +56,7 @@ Tip para el jurado: pantalla dividida, de un lado el celular escaneando y del ot
 2. **Application Access Policy de Teams** (sin esto Graph no devuelve reportes de reuniones):
    ```powershell
    New-CsApplicationAccessPolicy -Identity AutoPresente -AppIds "<MS_CLIENT_ID>"
-   Grant-CsApplicationAccessPolicy -PolicyName AutoPresente -Identity "profesor@universidad.edu.ar"
+   Grant-CsApplicationAccessPolicy -PolicyName AutoPresente -Identity "profesor@cervantes.edu.ar"
    ```
 3. En las reuniones de Teams del profesor activar *Informe de asistencia* (viene activado por defecto).
 4. **Cervantes:** completar `CERVANTES_URL/USUARIO/CLAVE`, `RPA_HEADLESS=1`, e inspeccionar el portal real
