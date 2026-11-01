@@ -3,6 +3,11 @@
     "nombre": "Prof. Demo",
     "email": "profesor@cervantes.edu.ar"
   },
+  "cuatrimestre": {
+    "inicio": "2026-08-10",
+    "fin": "2026-12-04",
+    "invitar_alumnos": true
+  },
   "aulas": {
     "A-201": {
       "nombre": "Aula 201 - Edificio Central",

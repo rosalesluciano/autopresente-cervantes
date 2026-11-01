@@ -3,6 +3,7 @@
   --texto:#1d2238; --texto-2:#5b6280; --texto-3:#8a90a6;
   --blanco:#ffffff; --fondo:#f7f8fb;
   --ok:#1f7a4d; --ok-suave:#e7f5ee; --warn:#a15c07; --warn-suave:#fdf3e2; --err:#b42318; --err-suave:#fdecea;
+  --marino:#2A3355; --sobre-azul:#ffffff; --tarjeta:#ffffff; --demo-borde:#b8bfd6; --demo-fondo:#fbfbfe;
   --radio:12px;
   --sombra:0 1px 2px rgba(42,51,85,.06),0 4px 16px rgba(42,51,85,.06);
 }
@@ -11,7 +12,7 @@ html,body{margin:0}
 body{font-family:"Inter","Segoe UI",system-ui,-apple-system,sans-serif;background:var(--fondo);color:var(--texto);
   font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
 a{color:var(--azul)}
-.barra{background:var(--azul);color:#fff}
+.barra{background:var(--marino);color:#fff}
 .barra .in{max-width:1180px;margin:auto;padding:14px 20px;display:flex;align-items:center;gap:14px}
 .marca{display:flex;align-items:center;gap:10px;font-weight:700;font-size:17px;letter-spacing:-.01em;color:#fff;text-decoration:none}
 .marca .logo{width:32px;height:32px;border-radius:50%;background:#fff;padding:2px;display:block}
@@ -32,7 +33,7 @@ h2{font-size:17px;margin:0 0 14px;color:var(--azul)}
 .kpi .n{font-size:32px;font-weight:700;color:var(--azul);letter-spacing:-.02em;line-height:1.1}
 .kpi .l{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--texto-3);font-weight:600}
 .dos{grid-template-columns:1.6fr 1fr;align-items:start}
-.clase{border:1px solid var(--azul-borde);border-radius:10px;padding:16px;margin-bottom:12px;background:#fff}
+.clase{border:1px solid var(--azul-borde);border-radius:10px;padding:16px;margin-bottom:12px;background:var(--tarjeta)}
 .clase .cab{display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap}
 .clase .titulo{font-weight:650;color:var(--azul)}
 .clase .meta{font-size:13px;color:var(--texto-3)}
@@ -51,13 +52,13 @@ h2{font-size:17px;margin:0 0 14px;color:var(--azul)}
 .log div{padding:6px 0;border-bottom:1px dashed var(--azul-borde);color:var(--texto-2)}
 .log .t{color:var(--texto-3);margin-right:6px}
 .log .warn{color:var(--warn)} .log .error{color:var(--err)}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--azul);color:#fff;border:0;border-radius:10px;
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--azul);color:var(--sobre-azul);border:0;border-radius:10px;
   padding:10px 16px;font:inherit;font-weight:600;cursor:pointer;text-decoration:none}
 .btn:hover{background:var(--azul-2)}
-.btn.sec{background:#fff;color:var(--azul);border:1px solid var(--azul-borde)}
+.btn.sec{background:var(--tarjeta);color:var(--azul);border:1px solid var(--azul-borde)}
 .btn.sec:hover{background:var(--azul-suave)}
 .btn.chico{padding:6px 12px;font-size:13px;border-radius:8px}
-select,input{font:inherit;padding:9px 12px;border:1px solid var(--azul-borde);border-radius:10px;background:#fff;color:var(--texto);width:100%}
+select,input{font:inherit;padding:9px 12px;border:1px solid var(--azul-borde);border-radius:10px;background:var(--tarjeta);color:var(--texto);width:100%}
 label{font-size:13px;font-weight:600;color:var(--texto-2);display:block;margin:10px 0 4px}
 table.t{width:100%;border-collapse:collapse;font-size:14px}
 table.t th{text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--texto-3);font-weight:600;
@@ -66,7 +67,22 @@ table.t td{padding:10px;border-bottom:1px solid var(--azul-borde)}
 .barra-cam{height:6px;border-radius:4px;background:var(--azul-suave);width:110px;display:inline-block;vertical-align:middle;margin-right:8px;overflow:hidden}
 .barra-cam i{display:block;height:100%;background:var(--azul)}
 .barra-cam.baja i{background:var(--err)}
-.demo{border:1px dashed #b8bfd6;background:#fbfbfe}
+.demo{border:1px dashed var(--demo-borde);background:var(--demo-fondo)}
 .vacio{color:var(--texto-3);text-align:center;padding:30px}
 @media (max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}.dos{grid-template-columns:1fr}}
 @media (max-width:600px){main{padding:20px 16px 40px}.barra nav{display:none}.pasos .paso span{display:none}}
+
+/* Tema oscuro: lo activa Teams (data-theme="dark"); el sistema se ve igual en claro. */
+:root[data-theme="dark"]{
+  --azul:#9aa5e6; --azul-2:#b3bcf0; --azul-suave:#232b50; --azul-borde:#2c3561;
+  --texto:#e7e9f3; --texto-2:#b3b8d1; --texto-3:#8389a8;
+  --blanco:#171e38; --fondo:#0f1426; --tarjeta:#171e38; --marino:#1c2446; --sobre-azul:#0f1426;
+  --ok:#5fd09a; --ok-suave:#173a2c; --warn:#f0b35a; --warn-suave:#3a2b14; --err:#ff8a7e; --err-suave:#3d1d1d;
+  --demo-borde:#3a4475; --demo-fondo:#141a33;
+  --sombra:0 1px 2px rgba(0,0,0,.3),0 4px 16px rgba(0,0,0,.25);
+  color-scheme:dark;
+}
+/* Dentro de Teams: sin barra propia y con menos margen (Teams ya pone su encabezado). */
+.en-teams main{padding-top:18px}
+.usuario-chip{font-size:13px;color:rgba(255,255,255,.8);margin-left:18px}
+.usuario-chip a{color:rgba(255,255,255,.8)}

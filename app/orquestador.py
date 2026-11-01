@@ -16,7 +16,8 @@ from datetime import datetime, timedelta
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
-from . import config, consolidar, db, reporte, rpa_cervantes, teams
+from . import aviso_teams, config, consolidar, db, reporte, rpa_cervantes, teams
+from .graph import GraphPendiente
 
 MAX_INTENTOS = 6
 _pipeline = threading.Lock()  # un solo navegador a la vez
@@ -25,7 +26,7 @@ _ultimo_vinculo: datetime | None = None
 
 def espera_post_clase() -> timedelta:
     # En demo no esperamos: el reporte "de Teams" se simula al instante.
-    return timedelta(seconds=5) if config.DEMO else timedelta(minutes=config.REGLAS["minutos_espera_tras_clase"])
+    return timedelta(seconds=5) if config.PRUEBAS else timedelta(minutes=config.REGLAS["minutos_espera_tras_clase"])
 
 
 def planificar(hoy: datetime):
@@ -102,15 +103,32 @@ def procesar(clase_id: int):
 
             if clase["estado"] == "enviando_reporte":
                 via = reporte.enviar(clase)
+                if aviso_teams.resumen(clase):
+                    via += " y Teams"
                 _estado(clase_id, "completada", f"Reporte enviado al profesor vía {via}")
+        except GraphPendiente as e:
+            # No es un error: Teams publica reportes y callRecords con demora. Se consulta
+            # cada 5 minutos hasta 4 horas después de la clase.
+            limite = datetime.fromisoformat(clase["fin"]) + timedelta(hours=4)
+            if db.ahora() > limite:
+                db.ejecutar("UPDATE clases SET estado='error', detalle=? WHERE id=?", (str(e)[:500], clase_id))
+                db.log(f"Pasaron 4 horas y Teams no publicó los datos: {e}", "error", clase_id)
+                aviso_teams.error(db.q1("SELECT * FROM clases WHERE id=?", (clase_id,)), str(e))
+            else:
+                espera = timedelta(seconds=20) if config.PRUEBAS else timedelta(minutes=5)
+                db.ejecutar("UPDATE clases SET detalle=?, proximo_intento=? WHERE id=?",
+                            (f"Esperando a Teams: {e}", (db.ahora() + espera).isoformat(), clase_id))
+                db.log(f"Esperando a Teams, se vuelve a consultar en {int(espera.total_seconds() // 60) or 1} min: {e}",
+                       clase_id=clase_id)
         except Exception as e:  # noqa: BLE001
             intentos = clase["intentos"] + 1
             if intentos >= MAX_INTENTOS:
                 db.ejecutar("UPDATE clases SET estado='error', intentos=?, detalle=? WHERE id=?",
                             (intentos, str(e)[:500], clase_id))
                 db.log(f"Falló definitivamente en «{clase['estado']}»: {e}", "error", clase_id)
+                aviso_teams.error(db.q1("SELECT * FROM clases WHERE id=?", (clase_id,)), str(e))
             else:
-                espera = timedelta(minutes=2 ** intentos) if not config.DEMO else timedelta(seconds=20)
+                espera = timedelta(minutes=2 ** intentos) if not config.PRUEBAS else timedelta(seconds=20)
                 db.ejecutar("UPDATE clases SET intentos=?, detalle=?, proximo_intento=? WHERE id=?",
                             (intentos, str(e)[:500], (db.ahora() + espera).isoformat(), clase_id))
                 db.log(f"Error en «{clase['estado']}» (intento {intentos}/{MAX_INTENTOS}), reintento automático: {e}",
@@ -132,7 +150,7 @@ _scheduler: BackgroundScheduler | None = None
 def iniciar():
     global _scheduler
     _scheduler = BackgroundScheduler(timezone=config.TZ)
-    _scheduler.add_job(tick, "interval", seconds=10 if config.DEMO else 30, next_run_time=db.ahora(),
+    _scheduler.add_job(tick, "interval", seconds=10 if config.PRUEBAS else 30, next_run_time=db.ahora(),
                        max_instances=1, coalesce=True)
     _scheduler.start()
 

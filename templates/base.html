@@ -6,18 +6,24 @@
 <title>{% block titulo %}AutoPresente{% endblock %}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/estilo.css">
+<link rel="stylesheet" href="/static/estilo.css?v=2">
 <link rel="icon" href="/static/icono-cervantes.png">
+{% if teams %}
+<script src="https://res.cdn.office.net/teams-js/2.22.0/js/MicrosoftTeams.min.js" crossorigin="anonymous"></script>
+<script>window.AP = {SSO: {{ 'true' if SSO else 'false' }}};</script>
+<script src="/static/teams.js?v=1"></script>
+{% endif %}
 {% block cabeza %}{% endblock %}
 </head>
 <body>
-{% block barra %}
+{% block barra %}{% if not teams %}
 <header class="barra"><div class="in">
   <a class="marca" href="/"><img class="logo" src="/static/icono-cervantes.png" alt="">Cervantes<span class="producto">AutoPresente</span></a>
   <span class="esp"></span>
-  <nav><a href="/">Panel</a>{% for id in ['A-201','LAB-3'] %}<a href="/aula/{{ id }}" target="_blank">Pantalla {{ id }}</a>{% endfor %}<a href="/cervantes" target="_blank">Portal Cervantes</a></nav>
+  <nav><a href="/">Panel</a>{% for id in ['A-201','LAB-3'] %}<a href="/aula/{{ id }}" target="_blank">Pantalla {{ id }}</a>{% endfor %}{% if PORTAL_SIMULADO %}<a href="/cervantes" target="_blank">Portal Cervantes</a>{% endif %}</nav>
+  {% if usuario %}<span class="usuario-chip">{{ usuario.email }} · <a href="/salir">Salir</a></span>{% endif %}
 </div></header>
-{% endblock %}
+{% endif %}{% endblock %}
 {% block cuerpo %}{% endblock %}
 </body>
 </html>

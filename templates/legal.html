@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block titulo %}{{ 'Privacidad' if pagina == 'privacidad' else 'Términos de uso' }} · AutoPresente{% endblock %}
+{% block cuerpo %}
+<main style="max-width:760px">
+{% if pagina == 'privacidad' %}
+  <h1>Privacidad</h1>
+  <p class="sub">Qué datos usa AutoPresente y para qué.</p>
+  <div class="tarjeta" style="display:grid;gap:12px">
+    <p><b>Datos que se registran.</b> Nombre, matrícula y correo institucional del padrón de cada materia; hora del
+      escaneo del QR y cómo se verificó la presencia (ubicación aproximada respecto del aula o red Wi-Fi de la
+      institución); para clases por Teams, hora de entrada y salida de la reunión y el tiempo con la cámara
+      encendida.</p>
+    <p><b>Datos que no se registran.</b> No se toman fotos, videos ni capturas de pantalla. No se guarda la ubicación
+      exacta: sólo la distancia al aula en el momento del registro.</p>
+    <p><b>Para qué se usan.</b> Únicamente para cargar la asistencia en Autogestión y enviar el resumen de cada clase
+      al docente a cargo. El porcentaje de cámara es un indicador para el docente, no una sanción automática.</p>
+    <p><b>Dónde se guardan.</b> En el servidor de la institución. Los datos de Teams se leen de Microsoft 365 de la
+      institución con permisos de sólo lectura aprobados por su administrador.</p>
+    <p><b>Responsable.</b> {{ PROFESOR.nombre }} y el área de sistemas de la institución. Para consultas o para pedir
+      la corrección de un dato, escribí a {{ PROFESOR.email }}.</p>
+  </div>
+{% else %}
+  <h1>Términos de uso</h1>
+  <p class="sub">Condiciones para alumnos y docentes.</p>
+  <div class="tarjeta" style="display:grid;gap:12px">
+    <p>AutoPresente registra la asistencia en nombre de la institución. Registrar la asistencia de otra persona, o
+      la propia sin estar en el aula, equivale a firmar por otro en la planilla y se trata según el reglamento de la
+      institución.</p>
+    <p>El docente puede corregir cualquier registro en Autogestión. El sistema sólo automatiza la carga.</p>
+  </div>
+{% endif %}
+</main>
+{% endblock %}

@@ -20,8 +20,9 @@
     <section class="tarjeta" style="overflow-x:auto">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
         <h2 style="margin:0">Alumnos</h2>
-        <div style="display:flex;gap:8px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
           <a class="btn chico sec" href="/export/{{ clase.id }}">Descargar CSV</a>
+          {% if tiene_tarjeta %}<a class="btn chico sec" href="/tarjeta-teams/{{ clase.id }}">Ver aviso de Teams</a>{% endif %}
           {% if tiene_mail %}<a class="btn chico" href="/correo/{{ clase.id }}" target="_blank">Ver correo enviado</a>{% endif %}
         </div>
       </div>

@@ -9,3 +9,5 @@ httpx
 apscheduler
 playwright
 python-dotenv
+PyJWT[crypto]
+pytest

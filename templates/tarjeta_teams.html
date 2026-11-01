@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block titulo %}Aviso de Teams · AutoPresente{% endblock %}
+{% block cabeza %}
+<script src="https://unpkg.com/adaptivecards@3.0.4/dist/adaptivecards.min.js"></script>
+<style>
+  #tarjeta{background:#fff;border:1px solid var(--azul-borde);border-radius:8px;padding:4px;max-width:520px}
+  #tarjeta .ac-pushButton{background:#5b5fc7;color:#fff;border:0;border-radius:4px;padding:6px 12px;font-weight:600;cursor:pointer}
+</style>
+{% endblock %}
+{% block cuerpo %}
+<main style="max-width:760px">
+  <p style="margin:0 0 8px"><a href="/clase/{{ clase_id }}">← Clase</a></p>
+  <h1>Aviso enviado a Teams</h1>
+  <p class="sub">Así ve el profesor la tarjeta en su chat de Teams. Se renderiza con la misma librería que usa Teams (Adaptive Cards 1.4).</p>
+  <div id="tarjeta"></div>
+</main>
+<script>
+const tarjeta = {{ tarjeta | tojson }};
+const ac = new AdaptiveCards.AdaptiveCard();
+ac.hostConfig = new AdaptiveCards.HostConfig({fontFamily: "Segoe UI, system-ui, sans-serif"});
+ac.onExecuteAction = a => { if (a.url) location.href = a.url; };
+ac.parse(tarjeta);
+document.getElementById("tarjeta").appendChild(ac.render());
+</script>
+{% endblock %}

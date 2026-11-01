@@ -1,0 +1,15 @@
+{% extends "movil.html" %}
+{% block titulo %}Ingresar · AutoPresente{% endblock %}
+{% block cuerpo %}
+<div class="m-tarj">
+  <div class="icono azul">@</div>
+  <h1 class="centro">Ingreso de docentes</h1>
+  <p class="sub centro" style="margin-bottom:8px">Con Microsoft 365 configurado, acá se abre el inicio de sesión de la institución.
+    En modo prueba, escribí el correo del docente (el de config/cursos.json).</p>
+  <form method="post" action="/ingresar/prueba">
+    <label for="email">Correo</label>
+    <input id="email" name="email" type="email" value="{{ PROFESOR.email }}" required>
+    <button class="btn ancho" type="submit">Ingresar</button>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block titulo %}Asistencia · {{ curso.materia }}{% endblock %}
+{% block cabeza %}
+<style>
+  main{max-width:900px}
+  .vivo{display:grid;grid-template-columns:minmax(200px,300px) minmax(0,1fr);gap:24px;align-items:center}
+  .qr{background:#fff;border-radius:16px;padding:14px;border:1px solid var(--azul-borde)}
+  .qr svg{width:100%;height:auto;display:block}
+  .qr svg path{fill:#2A3355}
+  .rot{height:4px;background:var(--azul-suave);border-radius:4px;margin-top:10px;overflow:hidden}
+  .rot i{display:block;height:100%;background:var(--azul);transition:width 1s linear}
+  .grande{font-size:56px;font-weight:800;letter-spacing:-.03em;line-height:1;font-variant-numeric:tabular-nums}
+  .nombres{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  /* Pantalla compartida de la reunión: QR grande y nada más */
+  .escenario main{max-width:none}
+  .escenario .vivo{grid-template-columns:minmax(260px,46vh) minmax(0,1fr);gap:5vw;min-height:80vh}
+  .escenario .grande{font-size:clamp(56px,8vw,110px)}
+  .escenario .solo-panel{display:none}
+  .panel-lateral .vivo{grid-template-columns:1fr}
+  @media (max-width:640px){.vivo{grid-template-columns:1fr}}
+</style>
+{% endblock %}
+{% block cuerpo %}
+<main>
+  <h1>{{ curso.materia }} · División {{ curso.division }}</h1>
+  <p class="sub solo-panel" id="sub">Conectando con Teams…</p>
+  <section id="contenido"></section>
+</main>
+<script>
+const CURSO = {{ curso.id | tojson }};
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let marco = "content", ultimoSvg = "";
+
+function pintar(d){
+  const cont = document.getElementById("contenido");
+  if (!d.activa) {
+    ultimoSvg = "";
+    const u = d.ultima ? `<div class="tarjeta" style="margin-top:14px"><h2>Última clase cargada · ${d.ultima.fecha.split("-").reverse().join("/")}</h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><span class="etq ok">${d.ultima.resumen.presenciales} presenciales</span>
+      <span class="etq azul">${d.ultima.resumen.virtuales} virtuales</span><span class="etq err">${d.ultima.resumen.ausentes} ausentes</span>
+      <a class="btn chico sec" href="/clase/${d.ultima.id}">Ver detalle</a></div></div>` : "";
+    cont.innerHTML = `<div class="tarjeta vacio">No hay clase en curso. El QR aparece solo cuando empieza la próxima (${esc(d.hora)}).</div>${u}`;
+    return;
+  }
+  if (!document.getElementById("qr")) {
+    const compartir = d.docente && marco === "sidePanel"
+      ? `<button class="btn" id="compartir" style="margin-top:14px">Mostrar el QR en la pantalla de la reunión</button>` : "";
+    cont.innerHTML = `<div class="vivo"><div><div class="qr" id="qr"></div><div class="rot"><i id="rot"></i></div></div>
+      <div><div class="detalle">Clase en curso · ${esc(d.horario)} hs · Aula ${esc(d.aula)}</div>
+      <p style="margin:8px 0 14px">Quienes están en el aula escanean el código con el celular. Quienes cursan por Teams ya quedan registrados por estar en esta reunión.</p>
+      <div><span class="grande" id="n"></span> <span class="detalle" id="de"></span></div>
+      <div class="nombres" id="ult"></div>${compartir}</div></div>`;
+    const b = document.getElementById("compartir");
+    if (b) b.onclick = () => microsoftTeams.meeting.shareAppContentToStage((err) => {
+      if (err) b.textContent = "No se pudo compartir: " + (err.message || err.errorCode || err);
+    }, `${location.origin}/teams/clase?curso=${encodeURIComponent(CURSO)}`);
+  }
+  if (d.svg !== ultimoSvg) { document.getElementById("qr").innerHTML = d.svg; ultimoSvg = d.svg; }
+  document.getElementById("rot").style.width = (100 * d.restante / d.rotacion) + "%";
+  document.getElementById("n").textContent = d.presentes;
+  document.getElementById("de").textContent = `de ${d.total} presentes en el aula`;
+  document.getElementById("ult").innerHTML = d.ultimos.map(n => `<span class="etq ok">✓ ${esc(n)}</span>`).join("");
+}
+
+async function ciclo(){
+  try {
+    const r = await fetch(`/api/curso/${encodeURIComponent(CURSO)}/en-vivo`, {credentials: "include"});
+    if (r.status === 401) { document.getElementById("contenido").innerHTML = `<div class="tarjeta vacio">Iniciá sesión con tu cuenta institucional para ver la asistencia.</div>`; return; }
+    pintar(await r.json());
+  } catch (e) {}
+}
+
+AP.listo.then(({teams, ctx, sesion}) => {
+  AP.avisoSesion(sesion);
+  if (teams) {
+    marco = (ctx.page && ctx.page.frameContext) || "content";
+    if (marco === "meetingStage") document.documentElement.classList.add("escenario");
+    if (marco === "sidePanel") document.documentElement.classList.add("panel-lateral");
+  }
+  document.getElementById("sub").textContent = marco === "sidePanel"
+    ? "Asistencia en vivo de esta clase." : "Asistencia en vivo y resumen de la última clase.";
+  ciclo(); setInterval(ciclo, 1000);
+});
+</script>
+{% endblock %}
